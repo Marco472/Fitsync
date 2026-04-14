@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleDisplayName</key>
+  <string>FitSync</string>
+  <key>CFBundleExecutable</key>
+  <string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleIdentifier</key>
+  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>$(PRODUCT_NAME)</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>CFBundleSignature</key>
+  <string>????</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+
+  <!-- ─── Bluetooth Permissions ─────────────────────────────────────── -->
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>FitSync needs Bluetooth access to connect to fitness machines such as treadmills, bikes, and rowing machines so it can read your workout data in real time.</string>
+  <key>NSBluetoothPeripheralUsageDescription</key>
+  <string>FitSync needs Bluetooth access to connect to nearby fitness equipment.</string>
+
+  <!-- ─── HealthKit Permission ───────────────────────────────────────── -->
+  <key>NSHealthShareUsageDescription</key>
+  <string>FitSync reads your health data to display fitness trends and provide personalized insights.</string>
+  <key>NSHealthUpdateUsageDescription</key>
+  <string>FitSync saves your workouts, heart rate, distance, and calories to Apple Health so all your fitness data stays in one place.</string>
+
+  <!-- ─── HealthKit Capability ──────────────────────────────────────── -->
+  <!-- Also add com.apple.developer.healthkit in your .entitlements file -->
+
+  <!-- ─── Background Modes ──────────────────────────────────────────── -->
+  <key>UIBackgroundModes</key>
+  <array>
+    <!-- Allows BLE to continue operating when app is backgrounded -->
+    <string>bluetooth-central</string>
+  </array>
+
+  <!-- ─── Standard iOS Keys ─────────────────────────────────────────── -->
+  <key>UILaunchStoryboardName</key>
+  <string>LaunchScreen</string>
+  <key>UIRequiredDeviceCapabilities</key>
+  <array>
+    <string>armv7</string>
+  </array>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <key>UIViewControllerBasedStatusBarAppearance</key>
+  <false/>
+</dict>
+</plist>
