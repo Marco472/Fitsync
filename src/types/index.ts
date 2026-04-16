@@ -168,6 +168,13 @@ export interface WorkoutSample {
   gear?: number;
 }
 
+export type WorkoutStatus = 'active' | 'paused' | 'completed';
+
+export interface WorkoutPausePeriod {
+  pausedAt: number;   // unix ms
+  resumedAt?: number; // unix ms (undefined while still paused)
+}
+
 export interface Workout {
   id: string;
   workoutType: WorkoutType;
@@ -176,7 +183,10 @@ export interface Workout {
   deviceBrand?: DeviceBrand;
   startTime: number;  // unix ms
   endTime?: number;   // unix ms
-  duration: number;   // seconds
+  /** Active (moving) duration in seconds — excludes paused time */
+  duration: number;
+  status?: WorkoutStatus;
+  pausePeriods?: WorkoutPausePeriod[];
   totalDistance?: number;   // meters
   totalCalories?: number;   // kcal
   averageHeartRate?: number;
@@ -186,6 +196,8 @@ export interface Workout {
   samples: WorkoutSample[];
   syncedToHealthKit: boolean;
   healthKitWorkoutId?: string;
+  /** User notes added after workout */
+  notes?: string;
 }
 
 // ─── Membership Types ─────────────────────────────────────────────────────────
@@ -247,14 +259,65 @@ export type BluetoothState =
 export interface AppState {
   bluetoothState: BluetoothState;
   scannedDevices: BLEDevice[];
+  /** Primary machine device */
   connectedDevice: BLEDevice | null;
+  /** All connected devices (Pro: up to 4 simultaneously) */
+  connectedDevices: BLEDevice[];
   currentMachineData: MachineData | null;
   currentHeartRate: HeartRateData | null;
+  /** Pause state independent of workout — lets WorkoutScreen react immediately */
+  workoutPaused: boolean;
   activeWorkout: Workout | null;
   workoutHistory: Workout[];
   healthKitAuthorized: boolean;
   isScanning: boolean;
   membership: MembershipState;
+  userSettings: UserSettings;
+  personalRecords: PersonalRecords;
+}
+
+// ─── User Settings ────────────────────────────────────────────────────────────
+
+export type UnitSystem = 'metric' | 'imperial';
+
+export interface UserSettings {
+  unitSystem: UnitSystem;
+  weightKg: number;          // for MET calorie estimation
+  ageYears: number;          // for HR zone calculation
+  maxHeartRate: number;      // bpm — 0 means auto-calculate (220 - age)
+  ftpWatts: number;          // Functional Threshold Power for power zones (0 = unset)
+  defaultWorkoutType: WorkoutType;
+  /** Seconds between automatic workout samples (default 5) */
+  sampleIntervalSeconds: number;
+}
+
+export const DEFAULT_USER_SETTINGS: UserSettings = {
+  unitSystem: 'metric',
+  weightKg: 70,
+  ageYears: 30,
+  maxHeartRate: 0,          // 0 = auto (220 - age)
+  ftpWatts: 0,
+  defaultWorkoutType: 'other',
+  sampleIntervalSeconds: 5,
+};
+
+// ─── Personal Records ─────────────────────────────────────────────────────────
+
+export interface PersonalRecord {
+  workoutId: string;
+  achievedAt: number; // unix ms
+  value: number;
+  workoutType?: WorkoutType;
+}
+
+export interface PersonalRecords {
+  longestDuration: PersonalRecord | null;     // seconds
+  longestDistance: PersonalRecord | null;     // meters
+  fastestPace: PersonalRecord | null;         // seconds/km
+  maxPower: PersonalRecord | null;            // watts
+  maxHeartRate: PersonalRecord | null;        // bpm
+  mostCalories: PersonalRecord | null;        // kcal
+  highestStrokeRate: PersonalRecord | null;   // strokes/min
 }
 
 // ─── Navigation Types ─────────────────────────────────────────────────────────
@@ -264,5 +327,7 @@ export type RootTabParamList = {
   Devices: undefined;
   Workout: undefined;
   History: undefined;
+  Analytics: undefined;
+  Settings: undefined;
   Membership: undefined;
 };

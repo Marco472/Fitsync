@@ -13,6 +13,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAppContext} from '../context/AppContext';
 import {healthKitService} from '../services/HealthKitService';
+import {exportWorkoutCsv, exportWorkoutJson, exportHistoryCsv} from '../services/ExportService';
 import {COLORS, SPACING, RADIUS} from '../theme';
 import {type Workout} from '../types';
 import {
@@ -29,6 +30,7 @@ export function HistoryScreen() {
   const {state, dispatch, saveWorkoutHistory} = useAppContext();
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const isPro = state.membership.tier === 'pro';
 
   async function syncToHealthKit(workout: Workout) {
     if (!state.healthKitAuthorized) {
@@ -71,7 +73,17 @@ export function HistoryScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
       <View style={styles.container}>
-        <Text style={styles.title}>History</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>History</Text>
+          {isPro && state.workoutHistory.length > 0 && (
+            <TouchableOpacity
+              style={styles.exportAllBtn}
+              onPress={() => exportHistoryCsv(state.workoutHistory)}
+              activeOpacity={0.7}>
+              <Text style={styles.exportAllBtnText}>Export All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {state.workoutHistory.length === 0 ? (
           <View style={styles.emptyState}>
@@ -109,6 +121,7 @@ export function HistoryScreen() {
           }}
           isSyncing={syncing === selectedWorkout.id}
           healthKitAuthorized={state.healthKitAuthorized}
+          isPro={isPro}
         />
       )}
     </SafeAreaView>
@@ -178,12 +191,14 @@ function WorkoutDetailModal({
   onSync,
   isSyncing,
   healthKitAuthorized,
+  isPro,
 }: {
   workout: Workout;
   onClose: () => void;
   onSync: () => void;
   isSyncing: boolean;
   healthKitAuthorized: boolean;
+  isPro: boolean;
 }) {
   const avgHR = workout.averageHeartRate ??
     (workout.samples.filter(s => s.heartRate).length > 0
@@ -326,6 +341,29 @@ function WorkoutDetailModal({
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Export */}
+          {isPro && (
+            <View style={styles.exportSection}>
+              <Text style={styles.exportSectionTitle}>Export</Text>
+              <View style={styles.exportRow}>
+                <TouchableOpacity
+                  style={styles.exportBtn}
+                  onPress={() => exportWorkoutCsv(workout)}
+                  activeOpacity={0.7}>
+                  <Text style={styles.exportBtnIcon}>📄</Text>
+                  <Text style={styles.exportBtnText}>CSV</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.exportBtn}
+                  onPress={() => exportWorkoutJson(workout)}
+                  activeOpacity={0.7}>
+                  <Text style={styles.exportBtnIcon}>{ '{}'}</Text>
+                  <Text style={styles.exportBtnText}>JSON</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -335,13 +373,27 @@ function WorkoutDetailModal({
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: COLORS.background},
   container: {flex: 1, padding: SPACING.md},
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+    marginTop: SPACING.sm,
+  },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: COLORS.text,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.sm,
   },
+  exportAllBtn: {
+    backgroundColor: COLORS.primary + '22',
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '55',
+  },
+  exportAllBtnText: {fontSize: 13, color: COLORS.primary, fontWeight: '600'},
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -434,4 +486,28 @@ const styles = StyleSheet.create({
   },
   syncModalBtnDisabled: {backgroundColor: COLORS.textMuted},
   syncModalBtnText: {fontSize: 16, fontWeight: '700', color: COLORS.text},
+  exportSection: {marginTop: SPACING.xl},
+  exportSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: SPACING.sm,
+  },
+  exportRow: {flexDirection: 'row', gap: SPACING.sm},
+  exportBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.surfaceRaised,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  exportBtnIcon: {fontSize: 18},
+  exportBtnText: {fontSize: 14, fontWeight: '600', color: COLORS.text},
 });

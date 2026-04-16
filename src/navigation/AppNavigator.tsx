@@ -7,6 +7,8 @@ import {HomeScreen} from '../screens/HomeScreen';
 import {DevicesScreen} from '../screens/DevicesScreen';
 import {WorkoutScreen} from '../screens/WorkoutScreen';
 import {HistoryScreen} from '../screens/HistoryScreen';
+import {AnalyticsScreen} from '../screens/AnalyticsScreen';
+import {SettingsScreen} from '../screens/SettingsScreen';
 import {MembershipScreen} from '../screens/MembershipScreen';
 import {useAppContext} from '../context/AppContext';
 import {COLORS} from '../theme';
@@ -80,6 +82,24 @@ export function AppNavigator() {
           options={{
             tabBarIcon: ({focused}) => (
               <TabIcon icon="📋" label="History" focused={focused} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Analytics"
+          component={AnalyticsScreen}
+          options={{
+            tabBarIcon: ({focused}) => (
+              <TabIcon icon="📊" label="Analytics" focused={focused} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            tabBarIcon: ({focused}) => (
+              <TabIcon icon="⚙️" label="Settings" focused={focused} />
             ),
           }}
         />

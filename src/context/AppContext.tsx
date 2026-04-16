@@ -17,10 +17,15 @@ import {
   type BluetoothState,
   type WorkoutType,
   type MembershipState,
+  type UserSettings,
+  type PersonalRecords,
+  type WorkoutPausePeriod,
+  DEFAULT_USER_SETTINGS,
   FEATURE_LIMITS,
 } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {membershipService} from '../services/MembershipService';
+import {estimateCalories} from '../utils/formatters';
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
@@ -31,15 +36,21 @@ type Action =
   | {type: 'UPDATE_DEVICE'; payload: Partial<BLEDevice> & {id: string}}
   | {type: 'CLEAR_SCANNED_DEVICES'}
   | {type: 'SET_CONNECTED_DEVICE'; payload: BLEDevice | null}
+  | {type: 'ADD_CONNECTED_DEVICE'; payload: BLEDevice}
+  | {type: 'REMOVE_CONNECTED_DEVICE'; payload: string}          // device id
   | {type: 'SET_MACHINE_DATA'; payload: MachineData | null}
   | {type: 'SET_HEART_RATE'; payload: HeartRateData | null}
   | {type: 'START_WORKOUT'; payload: Workout}
+  | {type: 'PAUSE_WORKOUT'}
+  | {type: 'RESUME_WORKOUT'}
   | {type: 'ADD_WORKOUT_SAMPLE'; payload: WorkoutSample}
   | {type: 'END_WORKOUT'; payload: {endTime: number; totalCalories?: number}}
   | {type: 'MARK_WORKOUT_SYNCED'; payload: {workoutId: string; healthKitWorkoutId?: string}}
   | {type: 'SET_WORKOUT_HISTORY'; payload: Workout[]}
   | {type: 'SET_HEALTHKIT_AUTHORIZED'; payload: boolean}
-  | {type: 'SET_MEMBERSHIP'; payload: MembershipState};
+  | {type: 'SET_MEMBERSHIP'; payload: MembershipState}
+  | {type: 'SET_USER_SETTINGS'; payload: Partial<UserSettings>}
+  | {type: 'UPDATE_PERSONAL_RECORDS'; payload: PersonalRecords};
 
 // ─── Initial State ─────────────────────────────────────────────────────────────
 
@@ -51,17 +62,31 @@ const defaultMembership: MembershipState = {
   isConnected: false,
 };
 
+const defaultPR: PersonalRecords = {
+  longestDuration: null,
+  longestDistance: null,
+  fastestPace: null,
+  maxPower: null,
+  maxHeartRate: null,
+  mostCalories: null,
+  highestStrokeRate: null,
+};
+
 const initialState: AppState = {
   bluetoothState: 'unknown',
   scannedDevices: [],
   connectedDevice: null,
+  connectedDevices: [],
   currentMachineData: null,
   currentHeartRate: null,
+  workoutPaused: false,
   activeWorkout: null,
   workoutHistory: [],
   healthKitAuthorized: false,
   isScanning: false,
   membership: defaultMembership,
+  userSettings: DEFAULT_USER_SETTINGS,
+  personalRecords: defaultPR,
 };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -97,13 +122,46 @@ function reducer(state: AppState, action: Action): AppState {
           state.connectedDevice?.id === action.payload.id
             ? {...state.connectedDevice, ...action.payload}
             : state.connectedDevice,
+        connectedDevices: state.connectedDevices.map(d =>
+          d.id === action.payload.id ? {...d, ...action.payload} : d,
+        ),
       };
 
     case 'CLEAR_SCANNED_DEVICES':
       return {...state, scannedDevices: []};
 
     case 'SET_CONNECTED_DEVICE':
-      return {...state, connectedDevice: action.payload};
+      return {
+        ...state,
+        connectedDevice: action.payload,
+        connectedDevices: action.payload
+          ? state.connectedDevices.some(d => d.id === action.payload!.id)
+            ? state.connectedDevices
+            : [...state.connectedDevices, action.payload]
+          : state.connectedDevices,
+      };
+
+    case 'ADD_CONNECTED_DEVICE':
+      return {
+        ...state,
+        connectedDevices: state.connectedDevices.some(d => d.id === action.payload.id)
+          ? state.connectedDevices
+          : [...state.connectedDevices, action.payload],
+        // If it's a machine (not HR monitor), set as primary
+        connectedDevice:
+          action.payload.deviceType !== 'heart_rate_monitor'
+            ? action.payload
+            : state.connectedDevice,
+      };
+
+    case 'REMOVE_CONNECTED_DEVICE': {
+      const remaining = state.connectedDevices.filter(d => d.id !== action.payload);
+      const primary =
+        state.connectedDevice?.id === action.payload
+          ? remaining.find(d => d.deviceType !== 'heart_rate_monitor') ?? null
+          : state.connectedDevice;
+      return {...state, connectedDevices: remaining, connectedDevice: primary};
+    }
 
     case 'SET_MACHINE_DATA':
       return {...state, currentMachineData: action.payload};
@@ -112,18 +170,50 @@ function reducer(state: AppState, action: Action): AppState {
       return {...state, currentHeartRate: action.payload};
 
     case 'START_WORKOUT':
-      return {...state, activeWorkout: action.payload};
+      return {...state, activeWorkout: action.payload, workoutPaused: false};
+
+    case 'PAUSE_WORKOUT': {
+      if (!state.activeWorkout || state.workoutPaused) return state;
+      const pausePeriods: WorkoutPausePeriod[] = [
+        ...(state.activeWorkout.pausePeriods ?? []),
+        {pausedAt: Date.now()},
+      ];
+      return {
+        ...state,
+        workoutPaused: true,
+        activeWorkout: {...state.activeWorkout, pausePeriods, status: 'paused'},
+      };
+    }
+
+    case 'RESUME_WORKOUT': {
+      if (!state.activeWorkout || !state.workoutPaused) return state;
+      const now = Date.now();
+      const pausePeriods = (state.activeWorkout.pausePeriods ?? []).map((p, i, arr) =>
+        i === arr.length - 1 && !p.resumedAt ? {...p, resumedAt: now} : p,
+      );
+      return {
+        ...state,
+        workoutPaused: false,
+        activeWorkout: {...state.activeWorkout, pausePeriods, status: 'active'},
+      };
+    }
 
     case 'ADD_WORKOUT_SAMPLE': {
-      if (!state.activeWorkout) return state;
+      if (!state.activeWorkout || state.workoutPaused) return state;
+      // Active (non-paused) duration
+      const pausedMs = (state.activeWorkout.pausePeriods ?? []).reduce((sum, p) => {
+        if (p.resumedAt) return sum + (p.resumedAt - p.pausedAt);
+        return sum; // still paused — don't count
+      }, 0);
+      const activeDuration = Math.floor(
+        (action.payload.timestamp - state.activeWorkout.startTime - pausedMs) / 1000,
+      );
       return {
         ...state,
         activeWorkout: {
           ...state.activeWorkout,
           samples: [...state.activeWorkout.samples, action.payload],
-          duration: Math.floor(
-            (action.payload.timestamp - state.activeWorkout.startTime) / 1000,
-          ),
+          duration: activeDuration,
           totalDistance: action.payload.distance ?? state.activeWorkout.totalDistance,
         },
       };
@@ -131,16 +221,22 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'END_WORKOUT': {
       if (!state.activeWorkout) return state;
+      const pausedMs = (state.activeWorkout.pausePeriods ?? []).reduce((sum, p) => {
+        const end = p.resumedAt ?? action.payload.endTime;
+        return sum + (end - p.pausedAt);
+      }, 0);
       const ended: Workout = {
         ...state.activeWorkout,
         endTime: action.payload.endTime,
         duration: Math.floor(
-          (action.payload.endTime - state.activeWorkout.startTime) / 1000,
+          (action.payload.endTime - state.activeWorkout.startTime - pausedMs) / 1000,
         ),
         totalCalories: action.payload.totalCalories,
+        status: 'completed',
       };
       return {
         ...state,
+        workoutPaused: false,
         activeWorkout: null,
         workoutHistory: [ended, ...state.workoutHistory],
       };
@@ -169,6 +265,15 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_MEMBERSHIP':
       return {...state, membership: action.payload};
 
+    case 'SET_USER_SETTINGS':
+      return {
+        ...state,
+        userSettings: {...state.userSettings, ...action.payload},
+      };
+
+    case 'UPDATE_PERSONAL_RECORDS':
+      return {...state, personalRecords: action.payload};
+
     default:
       return state;
   }
@@ -180,43 +285,53 @@ interface AppContextValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
   startWorkout: (type: WorkoutType, deviceId?: string, deviceName?: string) => Workout;
+  pauseWorkout: () => void;
+  resumeWorkout: () => void;
   endWorkout: (totalCalories?: number) => Workout | null;
   addWorkoutSample: (sample: Omit<WorkoutSample, 'timestamp'>) => void;
   saveWorkoutHistory: (workouts: Workout[]) => Promise<void>;
   loadWorkoutHistory: () => Promise<void>;
-  /** Check if a Pro-only feature is accessible */
+  saveUserSettings: (settings: Partial<UserSettings>) => Promise<void>;
   canUseFeature: (feature: keyof typeof FEATURE_LIMITS.pro) => boolean;
+  effectiveMaxHR: () => number;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-const STORAGE_KEY = '@fitsync_workout_history';
+const HISTORY_KEY  = '@fitsync_workout_history';
+const SETTINGS_KEY = '@fitsync_user_settings';
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AppProvider({children}: {children: ReactNode}) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const activeWorkoutRef = useRef<Workout | null>(null);
+  const pausedRef = useRef(false);
 
   activeWorkoutRef.current = state.activeWorkout;
+  pausedRef.current = state.workoutPaused;
 
-  // Initialise IAP and check entitlements on mount
+  // IAP init
   useEffect(() => {
-    async function initMembership() {
+    async function init() {
       await membershipService.connect();
-      const membershipState = await membershipService.checkEntitlements();
-      dispatch({type: 'SET_MEMBERSHIP', payload: membershipState});
+      const ms = await membershipService.checkEntitlements();
+      dispatch({type: 'SET_MEMBERSHIP', payload: ms});
+
+      // Load persisted settings
+      try {
+        const raw = await AsyncStorage.getItem(SETTINGS_KEY);
+        if (raw) {
+          const parsed: Partial<UserSettings> = JSON.parse(raw);
+          dispatch({type: 'SET_USER_SETTINGS', payload: parsed});
+        }
+      } catch (_) {}
     }
-    initMembership();
+    init();
 
-    // Listen for purchase updates from MembershipService
     const unsub = membershipService.onStateChange(partial => {
-      dispatch({
-        type: 'SET_MEMBERSHIP',
-        payload: {...state.membership, ...partial} as MembershipState,
-      });
+      dispatch({type: 'SET_MEMBERSHIP', payload: {...state.membership, ...partial} as MembershipState});
     });
-
     return () => {
       unsub();
       membershipService.disconnect();
@@ -236,6 +351,8 @@ export function AppProvider({children}: {children: ReactNode}) {
         duration: 0,
         samples: [],
         syncedToHealthKit: false,
+        status: 'active',
+        pausePeriods: [],
       };
       dispatch({type: 'START_WORKOUT', payload: workout});
       return workout;
@@ -243,21 +360,50 @@ export function AppProvider({children}: {children: ReactNode}) {
     [],
   );
 
+  const pauseWorkout = useCallback(() => {
+    dispatch({type: 'PAUSE_WORKOUT'});
+  }, []);
+
+  const resumeWorkout = useCallback(() => {
+    dispatch({type: 'RESUME_WORKOUT'});
+  }, []);
+
   const endWorkout = useCallback((totalCalories?: number): Workout | null => {
     const active = activeWorkoutRef.current;
     if (!active) return null;
     const endTime = Date.now();
-    dispatch({type: 'END_WORKOUT', payload: {endTime, totalCalories}});
+
+    // Calculate calories if machine didn't provide them
+    let kcal = totalCalories;
+    if (!kcal || kcal === 0) {
+      const settings = state.userSettings;
+      kcal = estimateCalories(
+        active.workoutType,
+        active.duration,
+        settings.weightKg,
+        undefined,
+      );
+    }
+
+    dispatch({type: 'END_WORKOUT', payload: {endTime, totalCalories: kcal}});
+
+    const pausedMs = (active.pausePeriods ?? []).reduce((sum, p) => {
+      const end = p.resumedAt ?? endTime;
+      return sum + (end - p.pausedAt);
+    }, 0);
+
     return {
       ...active,
       endTime,
-      duration: Math.floor((endTime - active.startTime) / 1000),
-      totalCalories,
+      duration: Math.floor((endTime - active.startTime - pausedMs) / 1000),
+      totalCalories: kcal,
+      status: 'completed',
     };
-  }, []);
+  }, [state.userSettings]);
 
   const addWorkoutSample = useCallback(
     (sample: Omit<WorkoutSample, 'timestamp'>) => {
+      if (pausedRef.current) return; // don't record while paused
       dispatch({
         type: 'ADD_WORKOUT_SAMPLE',
         payload: {...sample, timestamp: Date.now()},
@@ -268,29 +414,39 @@ export function AppProvider({children}: {children: ReactNode}) {
 
   const saveWorkoutHistory = useCallback(async (workouts: Workout[]) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(workouts));
+      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(workouts));
     } catch (_) {}
   }, []);
 
   const loadWorkoutHistory = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const raw = await AsyncStorage.getItem(HISTORY_KEY);
       if (raw) {
-        const workouts: Workout[] = JSON.parse(raw);
-        dispatch({type: 'SET_WORKOUT_HISTORY', payload: workouts});
+        dispatch({type: 'SET_WORKOUT_HISTORY', payload: JSON.parse(raw)});
       }
     } catch (_) {}
   }, []);
 
-  // ── Feature gating ────────────────────────────────────────────────────────
+  const saveUserSettings = useCallback(async (settings: Partial<UserSettings>) => {
+    dispatch({type: 'SET_USER_SETTINGS', payload: settings});
+    try {
+      const merged = {...state.userSettings, ...settings};
+      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+    } catch (_) {}
+  }, [state.userSettings]);
 
   const canUseFeature = useCallback(
     (feature: keyof typeof FEATURE_LIMITS.pro): boolean => {
-      const tier = state.membership.tier;
-      return FEATURE_LIMITS[tier][feature] as boolean;
+      return FEATURE_LIMITS[state.membership.tier][feature] as boolean;
     },
     [state.membership.tier],
   );
+
+  /** Returns the user's effective max HR (auto = 220 - age) */
+  const effectiveMaxHR = useCallback((): number => {
+    const {maxHeartRate, ageYears} = state.userSettings;
+    return maxHeartRate > 0 ? maxHeartRate : 220 - ageYears;
+  }, [state.userSettings]);
 
   return (
     <AppContext.Provider
@@ -298,11 +454,15 @@ export function AppProvider({children}: {children: ReactNode}) {
         state,
         dispatch,
         startWorkout,
+        pauseWorkout,
+        resumeWorkout,
         endWorkout,
         addWorkoutSample,
         saveWorkoutHistory,
         loadWorkoutHistory,
+        saveUserSettings,
         canUseFeature,
+        effectiveMaxHR,
       }}>
       {children}
     </AppContext.Provider>
