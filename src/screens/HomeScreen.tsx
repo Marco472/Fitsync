@@ -8,14 +8,24 @@ import {
   StatusBar,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import {type BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {useAppContext} from '../context/AppContext';
 import {healthKitService} from '../services/HealthKitService';
 import {COLORS, SPACING, RADIUS} from '../theme';
-import {type Workout} from '../types';
+import {type Workout, type RootTabParamList, FEATURE_LIMITS} from '../types';
 import {formatDuration, formatDistance, workoutTypeLabel, workoutTypeIcon} from '../utils/formatters';
+
+type NavProp = BottomTabNavigationProp<RootTabParamList, 'Home'>;
 
 export function HomeScreen() {
   const {state, dispatch, loadWorkoutHistory} = useAppContext();
+  const navigation = useNavigation<NavProp>();
+
+  const isPro = state.membership.tier === 'pro';
+  const historyLimit = FEATURE_LIMITS[state.membership.tier].maxHistoryEntries;
+  const historyCount = state.workoutHistory.length;
+  const nearLimit = !isPro && historyCount >= Math.floor((historyLimit as number) * 0.8);
 
   useEffect(() => {
     loadWorkoutHistory();
@@ -53,10 +63,10 @@ export function HomeScreen() {
           </View>
           <View style={styles.healthBadge}>
             <Text style={styles.healthIcon}>
-              {state.healthKitAuthorized ? '❤️' : '🔒'}
+              {isPro ? '⚡' : state.healthKitAuthorized ? '❤️' : '🔒'}
             </Text>
             <Text style={styles.healthLabel}>
-              {state.healthKitAuthorized ? 'Health' : 'Connect'}
+              {isPro ? 'Pro' : state.healthKitAuthorized ? 'Health' : 'Connect'}
             </Text>
           </View>
         </View>
@@ -110,6 +120,36 @@ export function HomeScreen() {
               </Text>
             </View>
             <Text style={styles.ctaChevron}>›</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Pro upgrade CTA (free users) */}
+        {!isPro && (
+          <TouchableOpacity
+            style={styles.proCta}
+            onPress={() => navigation.navigate('Membership')}
+            activeOpacity={0.8}>
+            <Text style={styles.proCtaIcon}>⚡</Text>
+            <View style={styles.ctaText}>
+              <Text style={styles.proCtaTitle}>Upgrade to FitSync Pro</Text>
+              <Text style={styles.proCtaBody}>
+                Concept2, Keiser & unlimited history · 7-day free trial
+              </Text>
+            </View>
+            <Text style={styles.ctaChevron}>›</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* History limit warning */}
+        {nearLimit && (
+          <TouchableOpacity
+            style={styles.warnCard}
+            onPress={() => navigation.navigate('Membership')}
+            activeOpacity={0.8}>
+            <Text style={styles.warnIcon}>⚠️</Text>
+            <Text style={styles.warnText}>
+              {historyCount}/{historyLimit} workouts stored — upgrade for unlimited
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -277,11 +317,38 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
     borderWidth: 1,
     borderColor: COLORS.danger + '55',
     gap: SPACING.md,
   },
+  proCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '55',
+    gap: SPACING.md,
+  },
+  proCtaIcon: {fontSize: 28},
+  proCtaTitle: {fontSize: 16, fontWeight: '700', color: COLORS.primary},
+  proCtaBody: {fontSize: 13, color: COLORS.textSecondary, marginTop: 2},
+  warnCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.warning + '15',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.warning + '44',
+    gap: SPACING.sm,
+  },
+  warnIcon: {fontSize: 16},
+  warnText: {flex: 1, fontSize: 13, color: COLORS.warning},
   ctaIcon: {fontSize: 28},
   ctaText: {flex: 1},
   ctaTitle: {

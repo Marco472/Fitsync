@@ -4,6 +4,7 @@ import React, {
   useReducer,
   useCallback,
   useRef,
+  useEffect,
   type ReactNode,
 } from 'react';
 import {
@@ -15,10 +16,13 @@ import {
   type WorkoutSample,
   type BluetoothState,
   type WorkoutType,
+  type MembershipState,
+  FEATURE_LIMITS,
 } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {membershipService} from '../services/MembershipService';
 
-// ─── State & Actions ──────────────────────────────────────────────────────────
+// ─── Actions ──────────────────────────────────────────────────────────────────
 
 type Action =
   | {type: 'SET_BLUETOOTH_STATE'; payload: BluetoothState}
@@ -34,7 +38,18 @@ type Action =
   | {type: 'END_WORKOUT'; payload: {endTime: number; totalCalories?: number}}
   | {type: 'MARK_WORKOUT_SYNCED'; payload: {workoutId: string; healthKitWorkoutId?: string}}
   | {type: 'SET_WORKOUT_HISTORY'; payload: Workout[]}
-  | {type: 'SET_HEALTHKIT_AUTHORIZED'; payload: boolean};
+  | {type: 'SET_HEALTHKIT_AUTHORIZED'; payload: boolean}
+  | {type: 'SET_MEMBERSHIP'; payload: MembershipState};
+
+// ─── Initial State ─────────────────────────────────────────────────────────────
+
+const defaultMembership: MembershipState = {
+  tier: 'free',
+  activeProductId: null,
+  expiresAt: null,
+  isLoading: true,
+  isConnected: false,
+};
 
 const initialState: AppState = {
   bluetoothState: 'unknown',
@@ -46,7 +61,10 @@ const initialState: AppState = {
   workoutHistory: [],
   healthKitAuthorized: false,
   isScanning: false,
+  membership: defaultMembership,
 };
+
+// ─── Reducer ──────────────────────────────────────────────────────────────────
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -148,12 +166,15 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_HEALTHKIT_AUTHORIZED':
       return {...state, healthKitAuthorized: action.payload};
 
+    case 'SET_MEMBERSHIP':
+      return {...state, membership: action.payload};
+
     default:
       return state;
   }
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+// ─── Context Value ─────────────────────────────────────────────────────────────
 
 interface AppContextValue {
   state: AppState;
@@ -163,18 +184,46 @@ interface AppContextValue {
   addWorkoutSample: (sample: Omit<WorkoutSample, 'timestamp'>) => void;
   saveWorkoutHistory: (workouts: Workout[]) => Promise<void>;
   loadWorkoutHistory: () => Promise<void>;
+  /** Check if a Pro-only feature is accessible */
+  canUseFeature: (feature: keyof typeof FEATURE_LIMITS.pro) => boolean;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
 const STORAGE_KEY = '@fitsync_workout_history';
 
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
 export function AppProvider({children}: {children: ReactNode}) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const activeWorkoutRef = useRef<Workout | null>(null);
 
-  // Keep ref in sync for use inside callbacks
   activeWorkoutRef.current = state.activeWorkout;
+
+  // Initialise IAP and check entitlements on mount
+  useEffect(() => {
+    async function initMembership() {
+      await membershipService.connect();
+      const membershipState = await membershipService.checkEntitlements();
+      dispatch({type: 'SET_MEMBERSHIP', payload: membershipState});
+    }
+    initMembership();
+
+    // Listen for purchase updates from MembershipService
+    const unsub = membershipService.onStateChange(partial => {
+      dispatch({
+        type: 'SET_MEMBERSHIP',
+        payload: {...state.membership, ...partial} as MembershipState,
+      });
+    });
+
+    return () => {
+      unsub();
+      membershipService.disconnect();
+    };
+  }, []);
+
+  // ── Workout actions ──────────────────────────────────────────────────────
 
   const startWorkout = useCallback(
     (type: WorkoutType, deviceId?: string, deviceName?: string): Workout => {
@@ -233,6 +282,16 @@ export function AppProvider({children}: {children: ReactNode}) {
     } catch (_) {}
   }, []);
 
+  // ── Feature gating ────────────────────────────────────────────────────────
+
+  const canUseFeature = useCallback(
+    (feature: keyof typeof FEATURE_LIMITS.pro): boolean => {
+      const tier = state.membership.tier;
+      return FEATURE_LIMITS[tier][feature] as boolean;
+    },
+    [state.membership.tier],
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -243,6 +302,7 @@ export function AppProvider({children}: {children: ReactNode}) {
         addWorkoutSample,
         saveWorkoutHistory,
         loadWorkoutHistory,
+        canUseFeature,
       }}>
       {children}
     </AppContext.Provider>

@@ -32,6 +32,15 @@ target 'FitSync' do
   # Permissions
   pod 'RNPermissions', :path => '../node_modules/react-native-permissions'
 
+  # In-App Purchases (StoreKit)
+  pod 'RNIap', :path => '../node_modules/react-native-iap'
+
+  # Secure Keychain storage (membership state)
+  pod 'RNKeychain', :path => '../node_modules/react-native-keychain'
+
+  # File system access (jailbreak detection)
+  pod 'RNFS', :path => '../node_modules/react-native-fs'
+
   target 'FitSyncTests' do
     inherit! :complete
     # Pods for testing

@@ -7,6 +7,8 @@ import {HomeScreen} from '../screens/HomeScreen';
 import {DevicesScreen} from '../screens/DevicesScreen';
 import {WorkoutScreen} from '../screens/WorkoutScreen';
 import {HistoryScreen} from '../screens/HistoryScreen';
+import {MembershipScreen} from '../screens/MembershipScreen';
+import {useAppContext} from '../context/AppContext';
 import {COLORS} from '../theme';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -15,20 +17,28 @@ function TabIcon({
   icon,
   label,
   focused,
+  badge,
 }: {
   icon: string;
   label: string;
   focused: boolean;
+  badge?: boolean;
 }) {
   return (
     <View style={styles.tabItem}>
-      <Text style={[styles.tabIcon, focused && styles.tabIconActive]}>{icon}</Text>
+      <View>
+        <Text style={[styles.tabIcon, focused && styles.tabIconActive]}>{icon}</Text>
+        {badge && <View style={styles.tabBadge} />}
+      </View>
       <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{label}</Text>
     </View>
   );
 }
 
 export function AppNavigator() {
+  const {state} = useAppContext();
+  const isFree = state.membership.tier === 'free';
+
   return (
     <NavigationContainer>
       <Tab.Navigator
@@ -73,6 +83,20 @@ export function AppNavigator() {
             ),
           }}
         />
+        <Tab.Screen
+          name="Membership"
+          component={MembershipScreen}
+          options={{
+            tabBarIcon: ({focused}) => (
+              <TabIcon
+                icon={isFree ? '👑' : '⚡'}
+                label={isFree ? 'Upgrade' : 'Pro'}
+                focused={focused}
+                badge={isFree}
+              />
+            ),
+          }}
+        />
       </Tab.Navigator>
     </NavigationContainer>
   );
@@ -106,5 +130,16 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: 0,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.danger,
+    borderWidth: 1,
+    borderColor: COLORS.surface,
   },
 });

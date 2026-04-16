@@ -1,0 +1,94 @@
+{
+  "identifier" : "FitSync StoreKit Config",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21234567-1234-1234-1234-123456789ABC",
+      "localizations" : [],
+      "name" : "FitSync Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "31234567-1234-1234-1234-123456789ABC",
+          "introductoryOffer" : {
+            "duration" : 1,
+            "durationUnit" : "WEEK",
+            "offerIdentifier" : "intro_7day",
+            "offerMode" : "FREE_TRIAL",
+            "periodCount" : 1
+          },
+          "localizations" : [
+            {
+              "description" : "Unlimited history, all commercial equipment, Apple Health auto-sync, advanced analytics, CSV export, and multi-device sessions.",
+              "displayName" : "FitSync Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.fitsync.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "21234567-1234-1234-1234-123456789ABC",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "79.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "41234567-1234-1234-1234-123456789ABC",
+          "introductoryOffer" : {
+            "duration" : 1,
+            "durationUnit" : "WEEK",
+            "offerIdentifier" : "intro_7day_annual",
+            "offerMode" : "FREE_TRIAL",
+            "periodCount" : 1
+          },
+          "localizations" : [
+            {
+              "description" : "Everything in Pro Monthly, billed annually. Save over 33% vs monthly.",
+              "displayName" : "FitSync Pro Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.fitsync.pro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Pro Annual",
+          "subscriptionGroupID" : "21234567-1234-1234-1234-123456789ABC",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 2,
+    "minor" : 0
+  }
+}
