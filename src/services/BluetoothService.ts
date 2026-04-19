@@ -442,8 +442,10 @@ type DataCallback<T>= (data: T) => void;
 
 export class BluetoothService {
   private manager: BleManager;
-  private connectedDevice: Device | null = null;
-  private subscriptions: Subscription[] = [];
+  /** All currently connected BLE devices keyed by device ID. */
+  private connectedDevices: Map<string, Device> = new Map();
+  /** Per-device active subscriptions, keyed by device ID. */
+  private subscriptions: Map<string, Subscription[]> = new Map();
 
   constructor() {
     this.manager = new BleManager();
@@ -483,7 +485,7 @@ export class BluetoothService {
     this.stopScan();
     const device = await this.manager.connectToDevice(deviceId, {timeout: 10000});
     await device.discoverAllServicesAndCharacteristics();
-    this.connectedDevice = device;
+    this.connectedDevices.set(deviceId, device);
 
     const services = await device.services();
     const serviceUUIDs = services.map(s => s.uuid.toLowerCase());
@@ -501,18 +503,28 @@ export class BluetoothService {
     };
   }
 
-  async disconnect(): Promise<void> {
-    this.clearSubscriptions();
-    if (this.connectedDevice) {
-      await this.manager.cancelDeviceConnection(this.connectedDevice.id);
-      this.connectedDevice = null;
+  async disconnect(deviceId?: string): Promise<void> {
+    if (deviceId) {
+      this.clearDeviceSubscriptions(deviceId);
+      const device = this.connectedDevices.get(deviceId);
+      if (device) {
+        await this.manager.cancelDeviceConnection(deviceId);
+        this.connectedDevices.delete(deviceId);
+      }
+    } else {
+      // Disconnect all
+      this.clearAllSubscriptions();
+      for (const id of this.connectedDevices.keys()) {
+        await this.manager.cancelDeviceConnection(id);
+      }
+      this.connectedDevices.clear();
     }
   }
 
   onDisconnect(deviceId: string, callback: () => void): () => void {
     const sub = this.manager.onDeviceDisconnected(deviceId, () => {
-      this.connectedDevice = null;
-      this.clearSubscriptions();
+      this.connectedDevices.delete(deviceId);
+      this.clearDeviceSubscriptions(deviceId);
       callback();
     });
     return () => sub.remove();
@@ -520,9 +532,14 @@ export class BluetoothService {
 
   // ── FTMS Subscriptions ─────────────────────────────────────────────────────
 
-  subscribeTreadmill(onData: DataCallback<TreadmillData>, onError?: (e: Error) => void): void {
-    if (!this.connectedDevice) return;
-    const sub = this.connectedDevice.monitorCharacteristicForService(
+  subscribeTreadmill(
+    deviceId: string,
+    onData: DataCallback<TreadmillData>,
+    onError?: (e: Error) => void,
+  ): void {
+    const device = this.connectedDevices.get(deviceId);
+    if (!device) return;
+    const sub = device.monitorCharacteristicForService(
       SERVICES.FITNESS_MACHINE, CHARACTERISTICS.TREADMILL_DATA,
       (err, char) => {
         if (err) { onError?.(err); return; }
@@ -530,12 +547,17 @@ export class BluetoothService {
         onData(validateTreadmillData(parseTreadmillData(char!.value!)));
       },
     );
-    this.subscriptions.push(sub);
+    this.addSubscription(deviceId, sub);
   }
 
-  subscribeIndoorBike(onData: DataCallback<IndoorBikeData>, onError?: (e: Error) => void): void {
-    if (!this.connectedDevice) return;
-    const sub = this.connectedDevice.monitorCharacteristicForService(
+  subscribeIndoorBike(
+    deviceId: string,
+    onData: DataCallback<IndoorBikeData>,
+    onError?: (e: Error) => void,
+  ): void {
+    const device = this.connectedDevices.get(deviceId);
+    if (!device) return;
+    const sub = device.monitorCharacteristicForService(
       SERVICES.FITNESS_MACHINE, CHARACTERISTICS.INDOOR_BIKE_DATA,
       (err, char) => {
         if (err) { onError?.(err); return; }
@@ -543,12 +565,17 @@ export class BluetoothService {
         onData(validateIndoorBikeData(parseIndoorBikeData(char!.value!)));
       },
     );
-    this.subscriptions.push(sub);
+    this.addSubscription(deviceId, sub);
   }
 
-  subscribeRower(onData: DataCallback<RowerData>, onError?: (e: Error) => void): void {
-    if (!this.connectedDevice) return;
-    const sub = this.connectedDevice.monitorCharacteristicForService(
+  subscribeRower(
+    deviceId: string,
+    onData: DataCallback<RowerData>,
+    onError?: (e: Error) => void,
+  ): void {
+    const device = this.connectedDevices.get(deviceId);
+    if (!device) return;
+    const sub = device.monitorCharacteristicForService(
       SERVICES.FITNESS_MACHINE, CHARACTERISTICS.ROWING_MACHINE_DATA,
       (err, char) => {
         if (err) { onError?.(err); return; }
@@ -556,12 +583,17 @@ export class BluetoothService {
         onData(validateRowerData(parseRowerData(char!.value!)));
       },
     );
-    this.subscriptions.push(sub);
+    this.addSubscription(deviceId, sub);
   }
 
-  subscribeHeartRate(onData: DataCallback<HeartRateData>, onError?: (e: Error) => void): void {
-    if (!this.connectedDevice) return;
-    const sub = this.connectedDevice.monitorCharacteristicForService(
+  subscribeHeartRate(
+    deviceId: string,
+    onData: DataCallback<HeartRateData>,
+    onError?: (e: Error) => void,
+  ): void {
+    const device = this.connectedDevices.get(deviceId);
+    if (!device) return;
+    const sub = device.monitorCharacteristicForService(
       SERVICES.HEART_RATE, CHARACTERISTICS.HEART_RATE_MEASUREMENT,
       (err, char) => {
         if (err) { onError?.(err); return; }
@@ -570,17 +602,19 @@ export class BluetoothService {
         if (validated) onData(validated);
       },
     );
-    this.subscriptions.push(sub);
+    this.addSubscription(deviceId, sub);
   }
 
   // ── Concept2 PM5 Subscription ──────────────────────────────────────────────
 
   subscribeConcept2Rowing(
+    deviceId: string,
     onData: DataCallback<Concept2RowingData>,
     onError?: (e: Error) => void,
   ): void {
-    if (!this.connectedDevice) return;
-    const sub = this.connectedDevice.monitorCharacteristicForService(
+    const device = this.connectedDevices.get(deviceId);
+    if (!device) return;
+    const sub = device.monitorCharacteristicForService(
       SERVICES.CONCEPT2_PM, CHARACTERISTICS.C2_ROWING_GENERAL_STATUS,
       (err, char) => {
         if (err) { onError?.(err); return; }
@@ -588,17 +622,19 @@ export class BluetoothService {
         onData(validateConcept2Data(parseConcept2RowingGeneral(char!.value!)));
       },
     );
-    this.subscriptions.push(sub);
+    this.addSubscription(deviceId, sub);
   }
 
   // ── Keiser M-series Subscription ──────────────────────────────────────────
 
   subscribeKeiserBike(
+    deviceId: string,
     onData: DataCallback<KeiserBikeData>,
     onError?: (e: Error) => void,
   ): void {
-    if (!this.connectedDevice) return;
-    const sub = this.connectedDevice.monitorCharacteristicForService(
+    const device = this.connectedDevices.get(deviceId);
+    if (!device) return;
+    const sub = device.monitorCharacteristicForService(
       SERVICES.KEISER_BIKE, CHARACTERISTICS.KEISER_DATA,
       (err, char) => {
         if (err) { onError?.(err); return; }
@@ -606,18 +642,30 @@ export class BluetoothService {
         onData(validateKeiserBikeData(parseKeiserBikeData(char!.value!)));
       },
     );
-    this.subscriptions.push(sub);
+    this.addSubscription(deviceId, sub);
   }
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
 
-  private clearSubscriptions(): void {
-    this.subscriptions.forEach(sub => sub.remove());
-    this.subscriptions = [];
+  private addSubscription(deviceId: string, sub: Subscription): void {
+    const existing = this.subscriptions.get(deviceId) ?? [];
+    this.subscriptions.set(deviceId, [...existing, sub]);
+  }
+
+  private clearDeviceSubscriptions(deviceId: string): void {
+    const subs = this.subscriptions.get(deviceId) ?? [];
+    subs.forEach(s => s.remove());
+    this.subscriptions.delete(deviceId);
+  }
+
+  private clearAllSubscriptions(): void {
+    for (const [id] of this.subscriptions) {
+      this.clearDeviceSubscriptions(id);
+    }
   }
 
   destroy(): void {
-    this.clearSubscriptions();
+    this.clearAllSubscriptions();
     this.manager.destroy();
   }
 }

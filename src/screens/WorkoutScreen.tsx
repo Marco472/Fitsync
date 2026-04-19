@@ -80,45 +80,45 @@ export function WorkoutScreen() {
   // Subscribe to all connected devices
   useEffect(() => {
     for (const d of state.connectedDevices) {
-      subscribeDevice(d.deviceType, d.brand);
+      subscribeDevice(d.id, d.deviceType, d.brand);
     }
   }, [state.connectedDevices.map(d => d.id).join(',')]);
 
-  function subscribeDevice(deviceType: string, brand: string) {
+  function subscribeDevice(deviceId: string, deviceType: string, brand: string) {
     if (brand === 'concept2') {
-      bluetoothService.subscribeConcept2Rowing(data => {
+      bluetoothService.subscribeConcept2Rowing(deviceId, data => {
         setC2Data(data);
         dispatch({type: 'SET_MACHINE_DATA', payload: data});
       });
       return;
     }
     if (brand === 'keiser') {
-      bluetoothService.subscribeKeiserBike(data => {
+      bluetoothService.subscribeKeiserBike(deviceId, data => {
         setKeiserData(data);
         dispatch({type: 'SET_MACHINE_DATA', payload: data});
       });
       return;
     }
     if (deviceType === 'treadmill') {
-      bluetoothService.subscribeTreadmill(data => {
+      bluetoothService.subscribeTreadmill(deviceId, data => {
         setTreadmillData(data);
         dispatch({type: 'SET_MACHINE_DATA', payload: data});
       });
     }
     if (deviceType === 'bike') {
-      bluetoothService.subscribeIndoorBike(data => {
+      bluetoothService.subscribeIndoorBike(deviceId, data => {
         setBikeData(data);
         dispatch({type: 'SET_MACHINE_DATA', payload: data});
       });
     }
     if (deviceType === 'rowing_machine') {
-      bluetoothService.subscribeRower(data => {
+      bluetoothService.subscribeRower(deviceId, data => {
         setRowerData(data);
         dispatch({type: 'SET_MACHINE_DATA', payload: data});
       });
     }
     if (deviceType === 'heart_rate_monitor') {
-      bluetoothService.subscribeHeartRate(data => {
+      bluetoothService.subscribeHeartRate(deviceId, data => {
         setHrData(data);
         dispatch({type: 'SET_HEART_RATE', payload: data});
       });

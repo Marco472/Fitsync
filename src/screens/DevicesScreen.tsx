@@ -14,7 +14,7 @@ import {State} from 'react-native-ble-plx';
 import {useAppContext} from '../context/AppContext';
 import {bluetoothService} from '../services/BluetoothService';
 import {COLORS, SPACING, RADIUS} from '../theme';
-import {type BLEDevice} from '../types';
+import {type BLEDevice, FEATURE_LIMITS} from '../types';
 import {deviceTypeIcon, rssiToSignal} from '../utils/formatters';
 
 const SCAN_DURATION_MS = 15000;
@@ -62,20 +62,28 @@ export function DevicesScreen() {
     }
   }
 
+  const deviceLimit: number = (FEATURE_LIMITS[state.membership.tier] as any).maxConnectedDevices;
+  const atLimit = state.connectedDevices.length >= deviceLimit;
+
   async function connectToDevice(device: BLEDevice) {
     if (connecting) return;
+
+    // Enforce device limit
+    if (atLimit) {
+      const tierLabel = state.membership.tier === 'free' ? 'Free' : 'Pro';
+      Alert.alert(
+        'Device Limit Reached',
+        `${tierLabel} plan supports up to ${deviceLimit} device${deviceLimit > 1 ? 's' : ''}. Disconnect one first.`,
+      );
+      return;
+    }
+
     setConnecting(device.id);
     dispatch({type: 'UPDATE_DEVICE', payload: {id: device.id, isConnecting: true}});
 
     try {
-      // Disconnect existing connection first
-      if (state.connectedDevice) {
-        await bluetoothService.disconnect();
-        dispatch({type: 'SET_CONNECTED_DEVICE', payload: null});
-      }
-
       const connected = await bluetoothService.connect(device.id);
-      dispatch({type: 'SET_CONNECTED_DEVICE', payload: connected});
+      dispatch({type: 'ADD_CONNECTED_DEVICE', payload: connected});
       dispatch({
         type: 'UPDATE_DEVICE',
         payload: {id: device.id, isConnected: true, isConnecting: false},
@@ -83,26 +91,20 @@ export function DevicesScreen() {
 
       // Register disconnect handler
       bluetoothService.onDisconnect(device.id, () => {
-        dispatch({type: 'SET_CONNECTED_DEVICE', payload: null});
-        dispatch({
-          type: 'UPDATE_DEVICE',
-          payload: {id: device.id, isConnected: false},
-        });
+        dispatch({type: 'REMOVE_CONNECTED_DEVICE', payload: device.id});
+        dispatch({type: 'UPDATE_DEVICE', payload: {id: device.id, isConnected: false}});
       });
     } catch (err: any) {
-      dispatch({
-        type: 'UPDATE_DEVICE',
-        payload: {id: device.id, isConnecting: false},
-      });
+      dispatch({type: 'UPDATE_DEVICE', payload: {id: device.id, isConnecting: false}});
       Alert.alert('Connection Failed', err?.message ?? 'Could not connect to device.');
     } finally {
       setConnecting(null);
     }
   }
 
-  async function disconnectDevice() {
-    await bluetoothService.disconnect();
-    dispatch({type: 'SET_CONNECTED_DEVICE', payload: null});
+  async function disconnectDevice(deviceId: string) {
+    await bluetoothService.disconnect(deviceId);
+    dispatch({type: 'REMOVE_CONNECTED_DEVICE', payload: deviceId});
     dispatch({type: 'SET_MACHINE_DATA', payload: null});
   }
 
@@ -129,27 +131,23 @@ export function DevicesScreen() {
           </View>
         </View>
 
-        {/* Connected device */}
-        {state.connectedDevice && (
-          <View style={styles.connectedCard}>
+        {/* Connected devices */}
+        {state.connectedDevices.map(d => (
+          <View key={d.id} style={styles.connectedCard}>
             <View style={styles.connectedLeft}>
-              <Text style={styles.connectedIcon}>
-                {deviceTypeIcon(state.connectedDevice.deviceType)}
-              </Text>
+              <Text style={styles.connectedIcon}>{deviceTypeIcon(d.deviceType)}</Text>
               <View>
-                <Text style={styles.connectedName}>
-                  {state.connectedDevice.name ?? 'Unnamed Device'}
-                </Text>
+                <Text style={styles.connectedName}>{d.name ?? 'Unnamed Device'}</Text>
                 <Text style={styles.connectedStatus}>Connected</Text>
               </View>
             </View>
             <TouchableOpacity
-              onPress={disconnectDevice}
+              onPress={() => disconnectDevice(d.id)}
               style={styles.disconnectBtn}>
               <Text style={styles.disconnectText}>Disconnect</Text>
             </TouchableOpacity>
           </View>
-        )}
+        ))}
 
         {/* Scan button */}
         <TouchableOpacity
@@ -185,20 +183,23 @@ export function DevicesScreen() {
               </Text>
             )
           }
-          renderItem={({item}) => (
-            <DeviceRow
-              device={item}
-              isConnecting={connecting === item.id}
-              isConnected={state.connectedDevice?.id === item.id}
-              onPress={() => {
-                if (state.connectedDevice?.id === item.id) {
-                  disconnectDevice();
-                } else {
-                  connectToDevice(item);
-                }
-              }}
-            />
-          )}
+          renderItem={({item}) => {
+            const isConnected = state.connectedDevices.some(d => d.id === item.id);
+            return (
+              <DeviceRow
+                device={item}
+                isConnecting={connecting === item.id}
+                isConnected={isConnected}
+                onPress={() => {
+                  if (isConnected) {
+                    disconnectDevice(item.id);
+                  } else {
+                    connectToDevice(item);
+                  }
+                }}
+              />
+            );
+          }}
         />
       </View>
     </SafeAreaView>
