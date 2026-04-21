@@ -19,7 +19,9 @@ import {
   type MembershipState,
   type UserSettings,
   type PersonalRecords,
+  type PersonalRecord,
   type WorkoutPausePeriod,
+  type WorkoutGoal,
   DEFAULT_USER_SETTINGS,
   FEATURE_LIMITS,
 } from '../types';
@@ -284,7 +286,7 @@ function reducer(state: AppState, action: Action): AppState {
 interface AppContextValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
-  startWorkout: (type: WorkoutType, deviceId?: string, deviceName?: string) => Workout;
+  startWorkout: (type: WorkoutType, deviceId?: string, deviceName?: string, goal?: WorkoutGoal) => Workout;
   pauseWorkout: () => void;
   resumeWorkout: () => void;
   endWorkout: (totalCalories?: number) => Workout | null;
@@ -301,6 +303,40 @@ const AppContext = createContext<AppContextValue | null>(null);
 const HISTORY_KEY  = '@fitsync_workout_history';
 const SETTINGS_KEY = '@fitsync_user_settings';
 
+// ─── Personal Record helper ───────────────────────────────────────────────────
+
+function computePRs(history: Workout[]): PersonalRecords {
+  let longestDuration: PersonalRecord | null  = null;
+  let longestDistance: PersonalRecord | null  = null;
+  let fastestPace: PersonalRecord | null      = null;
+  let maxPower: PersonalRecord | null         = null;
+  let maxHeartRate: PersonalRecord | null     = null;
+  let mostCalories: PersonalRecord | null     = null;
+  let highestStrokeRate: PersonalRecord | null = null;
+
+  for (const w of history) {
+    const at = w.endTime ?? w.startTime;
+    const pr = (val: number): PersonalRecord => ({workoutId: w.id, achievedAt: at, value: val});
+
+    if (w.duration > (longestDuration?.value ?? 0))       longestDuration  = pr(w.duration);
+    if (w.totalDistance && w.totalDistance > (longestDistance?.value ?? 0)) longestDistance = pr(w.totalDistance);
+    if (w.totalCalories && w.totalCalories > (mostCalories?.value ?? 0))    mostCalories   = pr(w.totalCalories);
+    if (w.maxHeartRate  && w.maxHeartRate  > (maxHeartRate?.value  ?? 0))   maxHeartRate   = pr(w.maxHeartRate);
+
+    if (w.averageSpeed && w.averageSpeed > 0) {
+      const pace = 3600 / w.averageSpeed; // sec/km — lower = faster
+      if (!fastestPace || pace < fastestPace.value) fastestPace = pr(pace);
+    }
+
+    for (const s of w.samples) {
+      if (s.power && s.power > (maxPower?.value ?? 0))             maxPower          = pr(s.power);
+      if (s.strokeRate && s.strokeRate > (highestStrokeRate?.value ?? 0)) highestStrokeRate = pr(s.strokeRate);
+    }
+  }
+
+  return {longestDuration, longestDistance, fastestPace, maxPower, maxHeartRate, mostCalories, highestStrokeRate};
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AppProvider({children}: {children: ReactNode}) {
@@ -311,7 +347,7 @@ export function AppProvider({children}: {children: ReactNode}) {
   activeWorkoutRef.current = state.activeWorkout;
   pausedRef.current = state.workoutPaused;
 
-  // IAP init
+  // IAP init + persisted data load
   useEffect(() => {
     async function init() {
       await membershipService.connect();
@@ -324,6 +360,14 @@ export function AppProvider({children}: {children: ReactNode}) {
         if (raw) {
           const parsed: Partial<UserSettings> = JSON.parse(raw);
           dispatch({type: 'SET_USER_SETTINGS', payload: parsed});
+        }
+      } catch (_) {}
+
+      // Load persisted workout history
+      try {
+        const raw = await AsyncStorage.getItem(HISTORY_KEY);
+        if (raw) {
+          dispatch({type: 'SET_WORKOUT_HISTORY', payload: JSON.parse(raw)});
         }
       } catch (_) {}
     }
@@ -341,7 +385,7 @@ export function AppProvider({children}: {children: ReactNode}) {
   // ── Workout actions ──────────────────────────────────────────────────────
 
   const startWorkout = useCallback(
-    (type: WorkoutType, deviceId?: string, deviceName?: string): Workout => {
+    (type: WorkoutType, deviceId?: string, deviceName?: string, goal?: WorkoutGoal): Workout => {
       const workout: Workout = {
         id: `workout_${Date.now()}`,
         workoutType: type,
@@ -353,6 +397,7 @@ export function AppProvider({children}: {children: ReactNode}) {
         syncedToHealthKit: false,
         status: 'active',
         pausePeriods: [],
+        goal,
       };
       dispatch({type: 'START_WORKOUT', payload: workout});
       return workout;
@@ -392,14 +437,20 @@ export function AppProvider({children}: {children: ReactNode}) {
       return sum + (end - p.pausedAt);
     }, 0);
 
-    return {
+    const finished: Workout = {
       ...active,
       endTime,
       duration: Math.floor((endTime - active.startTime - pausedMs) / 1000),
       totalCalories: kcal,
       status: 'completed',
     };
-  }, [state.userSettings]);
+
+    // Update personal records from full history + this new workout
+    const allWorkouts = [finished, ...state.workoutHistory];
+    dispatch({type: 'UPDATE_PERSONAL_RECORDS', payload: computePRs(allWorkouts)});
+
+    return finished;
+  }, [state.userSettings, state.workoutHistory]);
 
   const addWorkoutSample = useCallback(
     (sample: Omit<WorkoutSample, 'timestamp'>) => {

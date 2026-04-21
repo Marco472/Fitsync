@@ -19,6 +19,8 @@
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+declare const __DEV__: boolean;
+
 const SERVICE_NAME = 'com.fitsync.secure';
 
 // ─── Keychain wrapper ─────────────────────────────────────────────────────────

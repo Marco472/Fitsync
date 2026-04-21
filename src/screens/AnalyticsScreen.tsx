@@ -8,13 +8,10 @@ import {
   StatusBar,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
-import {type BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {useAppContext} from '../context/AppContext';
 import {COLORS, SPACING, RADIUS} from '../theme';
 import {
   type Workout,
-  type RootTabParamList,
   type PersonalRecords,
   type PersonalRecord,
 } from '../types';
@@ -30,14 +27,14 @@ import {
 } from '../utils/formatters';
 import {subDays, startOfWeek, startOfMonth, isAfter} from 'date-fns';
 
-type NavProp = BottomTabNavigationProp<RootTabParamList, 'History'>;
 type Period = 'week' | 'month' | 'all';
+type PREntry = {value: number; workoutId: string; achievedAt: number};
 
 // ─── Personal Record Calculation ─────────────────────────────────────────────
 
 function computePersonalRecords(history: Workout[]): PersonalRecords {
   const best = (
-    arr: {value: number; workoutId: string; achievedAt: number; workoutType?: string}[],
+    arr: PREntry[],
     compareFn: (a: number, b: number) => number,
   ): PersonalRecord | null => {
     if (arr.length === 0) return null;
@@ -56,13 +53,13 @@ function computePersonalRecords(history: Workout[]): PersonalRecords {
     highestStrokeRate: null,
   };
 
-  const durations: any[] = [];
-  const distances: any[] = [];
-  const paces: any[] = [];
-  const powers: any[] = [];
-  const hRates: any[] = [];
-  const cals: any[] = [];
-  const strokes: any[] = [];
+  const durations: PREntry[] = [];
+  const distances: PREntry[] = [];
+  const paces: PREntry[] = [];
+  const powers: PREntry[] = [];
+  const hRates: PREntry[] = [];
+  const cals: PREntry[] = [];
+  const strokes: PREntry[] = [];
 
   for (const w of history) {
     const base = {workoutId: w.id, achievedAt: w.endTime ?? w.startTime};

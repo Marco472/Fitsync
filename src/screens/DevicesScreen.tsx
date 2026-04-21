@@ -62,7 +62,7 @@ export function DevicesScreen() {
     }
   }
 
-  const deviceLimit: number = (FEATURE_LIMITS[state.membership.tier] as any).maxConnectedDevices;
+  const deviceLimit = FEATURE_LIMITS[state.membership.tier].maxConnectedDevices as number;
   const atLimit = state.connectedDevices.length >= deviceLimit;
 
   async function connectToDevice(device: BLEDevice) {

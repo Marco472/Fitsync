@@ -175,6 +175,14 @@ export interface WorkoutPausePeriod {
   resumedAt?: number; // unix ms (undefined while still paused)
 }
 
+export type WorkoutGoalType = 'duration' | 'distance' | 'calories';
+
+export interface WorkoutGoal {
+  type: WorkoutGoalType;
+  /** seconds (duration) | meters (distance) | kcal (calories) */
+  value: number;
+}
+
 export interface Workout {
   id: string;
   workoutType: WorkoutType;
@@ -196,6 +204,8 @@ export interface Workout {
   samples: WorkoutSample[];
   syncedToHealthKit: boolean;
   healthKitWorkoutId?: string;
+  /** Pre-set target (duration, distance, or calories) */
+  goal?: WorkoutGoal;
   /** User notes added after workout */
   notes?: string;
 }
