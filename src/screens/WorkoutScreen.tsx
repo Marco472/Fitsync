@@ -25,6 +25,8 @@ import {
   type HeartRateData,
   type WorkoutGoal,
   type WorkoutGoalType,
+  type IntervalProgram,
+  type IntervalState,
   type Workout,
 } from '../types';
 import {
@@ -42,6 +44,8 @@ import {
   getPowerZone,
 } from '../utils/formatters';
 import {SparkChart} from '../components/SparkChart';
+import {IntervalBuilder} from '../components/IntervalBuilder';
+import {IntervalDisplay} from '../components/IntervalDisplay';
 
 const SAMPLE_INTERVAL_MS = 5000;
 
@@ -66,9 +70,13 @@ export function WorkoutScreen() {
   const [keiserData, setKeiserData]       = useState<KeiserBikeData | null>(null);
   const [c2Data, setC2Data]               = useState<Concept2RowingData | null>(null);
   const [hrData, setHrData]               = useState<HeartRateData | null>(null);
-  const [isSyncing, setIsSyncing]         = useState(false);
-  const [goal, setGoal]                   = useState<WorkoutGoal | null>(null);
-  const goalCelebrated                    = useRef(false);
+  const [isSyncing, setIsSyncing]               = useState(false);
+  const [goal, setGoal]                         = useState<WorkoutGoal | null>(null);
+  const [intervalProgram, setIntervalProgram]   = useState<IntervalProgram | null>(null);
+  const [intervalState, setIntervalState]       = useState<IntervalState | null>(null);
+  const intervalRef                             = useRef<IntervalState | null>(null);
+  const goalCelebrated                          = useRef(false);
+  const intervalTimerRef                        = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null);
   const sampleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -136,10 +144,12 @@ export function WorkoutScreen() {
   }, []);
 
   function clearTimers() {
-    if (timerRef.current)       clearInterval(timerRef.current);
-    if (sampleTimerRef.current) clearInterval(sampleTimerRef.current);
+    if (timerRef.current)        clearInterval(timerRef.current);
+    if (sampleTimerRef.current)  clearInterval(sampleTimerRef.current);
+    if (intervalTimerRef.current) clearInterval(intervalTimerRef.current);
     timerRef.current = null;
     sampleTimerRef.current = null;
+    intervalTimerRef.current = null;
   }
 
   function detectWorkoutType(): WorkoutType {
@@ -165,6 +175,67 @@ export function WorkoutScreen() {
     setElapsed(0);
 
     startWorkout(type, device?.id, device?.name ?? undefined, goal ?? undefined);
+
+    // Start interval engine if a program is loaded
+    if (intervalProgram) {
+      const initialState: IntervalState = {
+        program: intervalProgram,
+        currentRound: 0,
+        currentBlock: 0,
+        blockElapsed: 0,
+      };
+      intervalRef.current = initialState;
+      setIntervalState(initialState);
+
+      intervalTimerRef.current = setInterval(() => {
+        const iv = intervalRef.current;
+        if (!iv) return;
+
+        const block = iv.program.blocks[iv.currentBlock];
+        const nextElapsed = iv.blockElapsed + 1;
+
+        if (nextElapsed < block.durationSeconds) {
+          // Still in the same block
+          const next = {...iv, blockElapsed: nextElapsed};
+          intervalRef.current = next;
+          setIntervalState(next);
+        } else {
+          // Block finished — advance
+          const nextBlockIdx = iv.currentBlock + 1;
+          if (nextBlockIdx < iv.program.blocks.length) {
+            // Next block in same round
+            const next: IntervalState = {
+              ...iv,
+              currentBlock: nextBlockIdx,
+              blockElapsed: 0,
+            };
+            intervalRef.current = next;
+            setIntervalState(next);
+            const nextBlock = iv.program.blocks[nextBlockIdx];
+            Vibration.vibrate(nextBlock.type === 'work' ? [0, 80, 80, 80] : [0, 40]);
+          } else if (iv.currentRound + 1 < iv.program.rounds) {
+            // Start next round
+            const next: IntervalState = {
+              ...iv,
+              currentRound: iv.currentRound + 1,
+              currentBlock: 0,
+              blockElapsed: 0,
+            };
+            intervalRef.current = next;
+            setIntervalState(next);
+            Vibration.vibrate([0, 80, 80, 80]);
+          } else {
+            // Program complete
+            clearInterval(intervalTimerRef.current!);
+            intervalTimerRef.current = null;
+            intervalRef.current = null;
+            setIntervalState(null);
+            Vibration.vibrate([0, 200, 100, 200]);
+            Alert.alert('Intervals Complete!', 'All rounds finished — keep going or end your workout.');
+          }
+        }
+      }, 1000);
+    }
 
     timerRef.current = setInterval(() => {
       if (!pauseStartRef.current) {
@@ -246,6 +317,8 @@ export function WorkoutScreen() {
     if (finished) {
       await saveWorkoutHistory([finished, ...state.workoutHistory]);
       setGoal(null);
+      setIntervalState(null);
+      intervalRef.current = null;
 
       if (state.healthKitAuthorized && canUseFeature('healthKitAutoSync')) {
         setIsSyncing(true);
@@ -352,6 +425,11 @@ export function WorkoutScreen() {
             </View>
           )}
         </View>
+
+        {/* Interval display */}
+        {intervalState && (
+          <IntervalDisplay state={intervalState} />
+        )}
 
         {/* HR Zone banner */}
         {hrZone && isPro && (
@@ -486,6 +564,11 @@ export function WorkoutScreen() {
         {/* Goal picker (before start) */}
         {!isActive && (
           <GoalPicker goal={goal} onChange={setGoal} />
+        )}
+
+        {/* Interval program builder (before start) */}
+        {!isActive && (
+          <IntervalBuilder selected={intervalProgram} onChange={setIntervalProgram} />
         )}
 
         {/* Controls */}

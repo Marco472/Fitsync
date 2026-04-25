@@ -10,82 +10,19 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAppContext} from '../context/AppContext';
 import {COLORS, SPACING, RADIUS} from '../theme';
-import {
-  type Workout,
-  type PersonalRecords,
-  type PersonalRecord,
-} from '../types';
+import {type Workout} from '../types';
 import {
   formatDuration,
   formatDistance,
   formatCalories,
   formatHeartRate,
   formatPower,
-  formatCadence,
   workoutTypeLabel,
   workoutTypeIcon,
 } from '../utils/formatters';
-import {subDays, startOfWeek, startOfMonth, isAfter} from 'date-fns';
+import {startOfWeek, startOfMonth, isAfter} from 'date-fns';
 
 type Period = 'week' | 'month' | 'all';
-type PREntry = {value: number; workoutId: string; achievedAt: number};
-
-// ─── Personal Record Calculation ─────────────────────────────────────────────
-
-function computePersonalRecords(history: Workout[]): PersonalRecords {
-  const best = (
-    arr: PREntry[],
-    compareFn: (a: number, b: number) => number,
-  ): PersonalRecord | null => {
-    if (arr.length === 0) return null;
-    const sorted = [...arr].sort((a, b) => compareFn(a.value, b.value));
-    const top = sorted[0];
-    return {workoutId: top.workoutId, achievedAt: top.achievedAt, value: top.value};
-  };
-
-  const records: PersonalRecords = {
-    longestDuration: null,
-    longestDistance: null,
-    fastestPace: null,
-    maxPower: null,
-    maxHeartRate: null,
-    mostCalories: null,
-    highestStrokeRate: null,
-  };
-
-  const durations: PREntry[] = [];
-  const distances: PREntry[] = [];
-  const paces: PREntry[] = [];
-  const powers: PREntry[] = [];
-  const hRates: PREntry[] = [];
-  const cals: PREntry[] = [];
-  const strokes: PREntry[] = [];
-
-  for (const w of history) {
-    const base = {workoutId: w.id, achievedAt: w.endTime ?? w.startTime};
-    if (w.duration > 0)          durations.push({...base, value: w.duration});
-    if (w.totalDistance)         distances.push({...base, value: w.totalDistance});
-    if (w.totalCalories)         cals.push({...base, value: w.totalCalories});
-    if (w.maxHeartRate)          hRates.push({...base, value: w.maxHeartRate});
-    if (w.averageSpeed && w.averageSpeed > 0)
-      paces.push({...base, value: 3600 / w.averageSpeed}); // sec/km (lower = faster)
-    // Power from samples
-    const maxPower = Math.max(...w.samples.map(s => s.power ?? 0));
-    if (maxPower > 0)            powers.push({...base, value: maxPower});
-    const maxStroke = Math.max(...w.samples.map(s => s.strokeRate ?? 0));
-    if (maxStroke > 0)           strokes.push({...base, value: maxStroke});
-  }
-
-  records.longestDuration  = best(durations,  (a, b) => b - a);
-  records.longestDistance  = best(distances,  (a, b) => b - a);
-  records.mostCalories     = best(cals,       (a, b) => b - a);
-  records.maxHeartRate     = best(hRates,     (a, b) => b - a);
-  records.maxPower         = best(powers,     (a, b) => b - a);
-  records.fastestPace      = best(paces,      (a, b) => a - b); // lower is better
-  records.highestStrokeRate = best(strokes,   (a, b) => b - a);
-
-  return records;
-}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -106,10 +43,8 @@ export function AnalyticsScreen() {
     }
   }, [state.workoutHistory, period]);
 
-  const prs = useMemo(
-    () => computePersonalRecords(state.workoutHistory),
-    [state.workoutHistory],
-  );
+  // Personal records come from context (computed & cached on every workout end)
+  const prs = state.personalRecords;
 
   const totalDuration = filteredWorkouts.reduce((s, w) => s + w.duration, 0);
   const totalDistance = filteredWorkouts.reduce((s, w) => s + (w.totalDistance ?? 0), 0);

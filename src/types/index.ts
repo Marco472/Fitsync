@@ -183,6 +183,41 @@ export interface WorkoutGoal {
   value: number;
 }
 
+// ─── Interval Workout Types ───────────────────────────────────────────────────
+
+/** A single work or rest block within an interval program. */
+export interface IntervalBlock {
+  /** 'work' blocks are intense efforts; 'rest' blocks are recovery. */
+  type: 'work' | 'rest';
+  /** Duration of this block in seconds. */
+  durationSeconds: number;
+  /** Optional power target in watts (shown as a cue during work blocks). */
+  targetPower?: number;
+  /** Optional pace target in sec/km. */
+  targetPace?: number;
+}
+
+/** A repeating interval program to be loaded before a workout starts. */
+export interface IntervalProgram {
+  id: string;
+  name: string;
+  /** How many times the sequence repeats. */
+  rounds: number;
+  /** The ordered blocks that make up one round. */
+  blocks: IntervalBlock[];
+}
+
+/** Runtime state of the currently executing interval program. */
+export interface IntervalState {
+  program: IntervalProgram;
+  /** Which round we're in (0-indexed). */
+  currentRound: number;
+  /** Which block within the round (0-indexed). */
+  currentBlock: number;
+  /** Seconds elapsed within the current block. */
+  blockElapsed: number;
+}
+
 export interface Workout {
   id: string;
   workoutType: WorkoutType;

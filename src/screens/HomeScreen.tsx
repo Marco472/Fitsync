@@ -82,15 +82,15 @@ export function HomeScreen() {
           />
         </View>
 
-        {/* Active Device Banner */}
-        {state.connectedDevice && (
+        {/* Connected devices */}
+        {state.connectedDevices.length > 0 && (
           <View style={styles.connectedBanner}>
             <Text style={styles.connectedDot}>●</Text>
             <Text style={styles.connectedText}>
-              Connected to{' '}
-              <Text style={styles.connectedName}>
-                {state.connectedDevice.name ?? 'Unknown Device'}
-              </Text>
+              {state.connectedDevices.length === 1
+                ? <>Connected to <Text style={styles.connectedName}>{state.connectedDevices[0].name ?? 'Unknown Device'}</Text></>
+                : <>{state.connectedDevices.length} devices connected: <Text style={styles.connectedName}>{state.connectedDevices.map(d => d.name ?? 'Device').join(', ')}</Text></>
+              }
             </Text>
           </View>
         )}
