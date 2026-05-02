@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useMemo} from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   StatusBar,
   Modal,
   ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAppContext} from '../context/AppContext';
@@ -16,7 +19,7 @@ import {healthKitService} from '../services/HealthKitService';
 import {exportWorkoutCsv, exportWorkoutJson, exportHistoryCsv} from '../services/ExportService';
 import {SparkChart} from '../components/SparkChart';
 import {COLORS, SPACING, RADIUS} from '../theme';
-import {type Workout} from '../types';
+import {type Workout, type WorkoutType} from '../types';
 import {
   formatDuration,
   formatDistance,
@@ -28,10 +31,23 @@ import {
 } from '../utils/formatters';
 
 export function HistoryScreen() {
-  const {state, dispatch, saveWorkoutHistory} = useAppContext();
+  const {state, dispatch, saveWorkoutHistory, updateWorkout} = useAppContext();
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<WorkoutType | null>(null);
   const isPro = state.membership.tier === 'pro';
+
+  // Workout types present in history (for filter chips)
+  const presentTypes = useMemo((): WorkoutType[] => {
+    const seen = new Set<WorkoutType>();
+    for (const w of state.workoutHistory) seen.add(w.workoutType);
+    return Array.from(seen);
+  }, [state.workoutHistory]);
+
+  const displayedWorkouts = useMemo(() =>
+    typeFilter ? state.workoutHistory.filter(w => w.workoutType === typeFilter) : state.workoutHistory,
+    [state.workoutHistory, typeFilter],
+  );
 
   async function syncToHealthKit(workout: Workout) {
     if (!state.healthKitAuthorized) {
@@ -86,6 +102,36 @@ export function HistoryScreen() {
           )}
         </View>
 
+        {/* Filter chips */}
+        {state.workoutHistory.length > 0 && presentTypes.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterRow}
+            contentContainerStyle={styles.filterRowContent}>
+            <TouchableOpacity
+              style={[styles.filterChip, typeFilter === null && styles.filterChipActive]}
+              onPress={() => setTypeFilter(null)}
+              activeOpacity={0.7}>
+              <Text style={[styles.filterChipText, typeFilter === null && styles.filterChipTextActive]}>
+                All
+              </Text>
+            </TouchableOpacity>
+            {presentTypes.map(type => (
+              <TouchableOpacity
+                key={type}
+                style={[styles.filterChip, typeFilter === type && styles.filterChipActive]}
+                onPress={() => setTypeFilter(typeFilter === type ? null : type)}
+                activeOpacity={0.7}>
+                <Text style={styles.filterChipIcon}>{workoutTypeIcon(type)}</Text>
+                <Text style={[styles.filterChipText, typeFilter === type && styles.filterChipTextActive]}>
+                  {workoutTypeLabel(type)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
         {state.workoutHistory.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>📋</Text>
@@ -94,9 +140,15 @@ export function HistoryScreen() {
               Completed workouts will appear here
             </Text>
           </View>
+        ) : displayedWorkouts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🔍</Text>
+            <Text style={styles.emptyTitle}>No matching workouts</Text>
+            <Text style={styles.emptyBody}>Try a different filter</Text>
+          </View>
         ) : (
           <FlatList
-            data={state.workoutHistory}
+            data={displayedWorkouts}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.list}
             renderItem={({item}) => (
@@ -123,6 +175,7 @@ export function HistoryScreen() {
           isSyncing={syncing === selectedWorkout.id}
           healthKitAuthorized={state.healthKitAuthorized}
           isPro={isPro}
+          updateWorkout={updateWorkout}
         />
       )}
     </SafeAreaView>
@@ -193,6 +246,7 @@ function WorkoutDetailModal({
   isSyncing,
   healthKitAuthorized,
   isPro,
+  updateWorkout,
 }: {
   workout: Workout;
   onClose: () => void;
@@ -200,7 +254,10 @@ function WorkoutDetailModal({
   isSyncing: boolean;
   healthKitAuthorized: boolean;
   isPro: boolean;
+  updateWorkout: (id: string, patch: Partial<Workout>) => void;
 }) {
+  const [localNotes, setLocalNotes] = useState(workout.notes ?? '');
+
   const avgHR = workout.averageHeartRate ??
     (workout.samples.filter(s => s.heartRate).length > 0
       ? workout.samples
@@ -235,7 +292,10 @@ function WorkoutDetailModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.modalContent}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.kav}>
+        <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
           {/* Date / Time */}
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Date</Text>
@@ -372,6 +432,27 @@ function WorkoutDetailModal({
             )}
           </View>
 
+          {/* Notes */}
+          <View style={styles.notesSection}>
+            <Text style={styles.notesSectionTitle}>Notes</Text>
+            <TextInput
+              style={styles.notesInput}
+              value={localNotes}
+              onChangeText={setLocalNotes}
+              onBlur={() => {
+                const trimmed = localNotes.trim();
+                if (trimmed !== (workout.notes ?? '')) {
+                  updateWorkout(workout.id, {notes: trimmed || undefined});
+                }
+              }}
+              multiline
+              numberOfLines={3}
+              placeholder="Add workout notes…"
+              placeholderTextColor={COLORS.textMuted}
+              textAlignVertical="top"
+            />
+          </View>
+
           {/* Export */}
           {isPro && (
             <View style={styles.exportSection}>
@@ -395,6 +476,7 @@ function WorkoutDetailModal({
             </View>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );
@@ -556,4 +638,43 @@ const styles = StyleSheet.create({
   },
   exportBtnIcon: {fontSize: 18},
   exportBtnText: {fontSize: 14, fontWeight: '600', color: COLORS.text},
+  // Filter chips
+  filterRow: {marginBottom: SPACING.sm},
+  filterRowContent: {gap: SPACING.xs, paddingRight: SPACING.sm},
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterChipActive: {borderColor: COLORS.primary, backgroundColor: COLORS.primary + '22'},
+  filterChipIcon: {fontSize: 14},
+  filterChipText: {fontSize: 13, fontWeight: '600', color: COLORS.textMuted},
+  filterChipTextActive: {color: COLORS.primary},
+  // Notes
+  kav: {flex: 1},
+  notesSection: {marginTop: SPACING.xl},
+  notesSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: SPACING.sm,
+  },
+  notesInput: {
+    backgroundColor: COLORS.surfaceRaised,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.sm,
+    color: COLORS.text,
+    fontSize: 14,
+    minHeight: 80,
+  },
 });

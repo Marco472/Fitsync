@@ -64,6 +64,7 @@ export function WorkoutScreen() {
   } = useAppContext();
 
   const [elapsed, setElapsed] = useState(0);
+  const [manualWorkoutType, setManualWorkoutType] = useState<WorkoutType | null>(null);
   const [treadmillData, setTreadmillData] = useState<TreadmillData | null>(null);
   const [bikeData, setBikeData]           = useState<IndoorBikeData | null>(null);
   const [rowerData, setRowerData]         = useState<RowerData | null>(null);
@@ -168,7 +169,7 @@ export function WorkoutScreen() {
   }
 
   function handleStartWorkout() {
-    const type = detectWorkoutType();
+    const type = manualWorkoutType ?? detectWorkoutType();
     startTimeRef.current = Date.now();
     pausedMsRef.current = 0;
     goalCelebrated.current = false;
@@ -367,7 +368,9 @@ export function WorkoutScreen() {
   // ── Derived values ──────────────────────────────────────────────────────────
 
   const activeData = treadmillData ?? bikeData ?? rowerData ?? keiserData ?? c2Data;
-  const workoutType = isActive ? state.activeWorkout!.workoutType : detectWorkoutType();
+  const workoutType = isActive
+    ? state.activeWorkout!.workoutType
+    : (manualWorkoutType ?? detectWorkoutType());
 
   const currentHR    = hrData?.bpm ?? c2Data?.heartRate ?? keiserData?.heartRate;
   const currentSpeed = (activeData as TreadmillData | IndoorBikeData)?.instantaneousSpeed
@@ -593,6 +596,11 @@ export function WorkoutScreen() {
           <GoalProgressBar goal={goal} elapsed={elapsed} currentDist={currentDist} currentCals={currentCals} />
         )}
 
+        {/* Workout type picker (before start) */}
+        {!isActive && (
+          <TypePicker selected={manualWorkoutType} onChange={setManualWorkoutType} autoDetected={detectWorkoutType()} />
+        )}
+
         {/* Goal picker (before start) */}
         {!isActive && (
           <GoalPicker goal={goal} onChange={setGoal} />
@@ -641,6 +649,83 @@ export function WorkoutScreen() {
     </SafeAreaView>
   );
 }
+
+// ─── TypePicker ───────────────────────────────────────────────────────────────
+
+const WORKOUT_TYPE_OPTIONS: WorkoutType[] = [
+  'running', 'cycling', 'rowing', 'elliptical', 'stair_climbing', 'skiing', 'other',
+];
+
+function TypePicker({
+  selected,
+  onChange,
+  autoDetected,
+}: {
+  selected: WorkoutType | null;
+  onChange: (t: WorkoutType | null) => void;
+  autoDetected: WorkoutType;
+}) {
+  return (
+    <View style={tpStyles.container}>
+      <Text style={tpStyles.heading}>Workout Type</Text>
+      <View style={tpStyles.grid}>
+        {WORKOUT_TYPE_OPTIONS.map(type => {
+          const isActive = selected === type || (selected === null && autoDetected === type);
+          const isAuto = selected === null && autoDetected === type;
+          return (
+            <TouchableOpacity
+              key={type}
+              style={[tpStyles.typeBtn, isActive && tpStyles.typeBtnActive]}
+              onPress={() => onChange(selected === type ? null : type)}
+              activeOpacity={0.7}>
+              <Text style={tpStyles.typeIcon}>{workoutTypeIcon(type)}</Text>
+              <Text style={[tpStyles.typeLabel, isActive && tpStyles.typeLabelActive]}>
+                {workoutTypeLabel(type)}
+              </Text>
+              {isAuto && <Text style={tpStyles.autoTag}>auto</Text>}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const tpStyles = StyleSheet.create({
+  container: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  heading: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: SPACING.sm,
+  },
+  grid: {flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs},
+  typeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.surfaceRaised,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  typeBtnActive: {borderColor: COLORS.primary, backgroundColor: COLORS.primary + '22'},
+  typeIcon: {fontSize: 14},
+  typeLabel: {fontSize: 13, fontWeight: '600', color: COLORS.textSecondary},
+  typeLabelActive: {color: COLORS.primary},
+  autoTag: {fontSize: 9, color: COLORS.textMuted, fontWeight: '600', marginLeft: 2},
+});
 
 // ─── GoalPicker ───────────────────────────────────────────────────────────────
 

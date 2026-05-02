@@ -47,6 +47,25 @@ export function HomeScreen() {
     0,
   );
 
+  const workoutStreak = React.useMemo(() => {
+    if (state.workoutHistory.length === 0) return 0;
+    const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    let streak = 0;
+    let checkMs = todayMs;
+    while (true) {
+      const hasWorkout = state.workoutHistory.some(w => {
+        const d = new Date(w.startTime); d.setHours(0,0,0,0); return d.getTime() === checkMs;
+      });
+      if (!hasWorkout) {
+        if (streak === 0 && checkMs === todayMs) { checkMs -= 86400000; continue; }
+        break;
+      }
+      streak++;
+      checkMs -= 86400000;
+    }
+    return streak;
+  }, [state.workoutHistory]);
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
@@ -78,6 +97,11 @@ export function HomeScreen() {
             title="Calories"
             value={totalCalories > 0 ? `${totalCalories}` : '—'}
             icon="🔥"
+          />
+          <StatCard
+            title="Streak"
+            value={workoutStreak > 0 ? `${workoutStreak}d` : '—'}
+            icon="🗓️"
           />
         </View>
 

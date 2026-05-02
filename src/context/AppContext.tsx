@@ -49,6 +49,7 @@ type Action =
   | {type: 'END_WORKOUT'; payload: {endTime: number; totalCalories?: number}}
   | {type: 'MARK_WORKOUT_SYNCED'; payload: {workoutId: string; healthKitWorkoutId?: string}}
   | {type: 'SET_WORKOUT_HISTORY'; payload: Workout[]}
+  | {type: 'UPDATE_WORKOUT'; payload: {workoutId: string; patch: Partial<Workout>}}
   | {type: 'SET_HEALTHKIT_AUTHORIZED'; payload: boolean}
   | {type: 'SET_MEMBERSHIP'; payload: MembershipState}
   | {type: 'SET_USER_SETTINGS'; payload: Partial<UserSettings>}
@@ -261,6 +262,14 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_WORKOUT_HISTORY':
       return {...state, workoutHistory: action.payload};
 
+    case 'UPDATE_WORKOUT':
+      return {
+        ...state,
+        workoutHistory: state.workoutHistory.map(w =>
+          w.id === action.payload.workoutId ? {...w, ...action.payload.patch} : w,
+        ),
+      };
+
     case 'SET_HEALTHKIT_AUTHORIZED':
       return {...state, healthKitAuthorized: action.payload};
 
@@ -293,6 +302,7 @@ interface AppContextValue {
   addWorkoutSample: (sample: Omit<WorkoutSample, 'timestamp'>) => void;
   saveWorkoutHistory: (workouts: Workout[]) => Promise<void>;
   loadWorkoutHistory: () => Promise<void>;
+  updateWorkout: (workoutId: string, patch: Partial<Workout>) => Promise<void>;
   saveUserSettings: (settings: Partial<UserSettings>) => Promise<void>;
   canUseFeature: (feature: keyof typeof FEATURE_LIMITS.pro) => boolean;
   effectiveMaxHR: () => number;
@@ -488,6 +498,16 @@ export function AppProvider({children}: {children: ReactNode}) {
     } catch (_) {}
   }, []);
 
+  const updateWorkout = useCallback(async (workoutId: string, patch: Partial<Workout>) => {
+    dispatch({type: 'UPDATE_WORKOUT', payload: {workoutId, patch}});
+    try {
+      const updated = state.workoutHistory.map(w =>
+        w.id === workoutId ? {...w, ...patch} : w,
+      );
+      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    } catch (_) {}
+  }, [state.workoutHistory]);
+
   const saveUserSettings = useCallback(async (settings: Partial<UserSettings>) => {
     dispatch({type: 'SET_USER_SETTINGS', payload: settings});
     try {
@@ -521,6 +541,7 @@ export function AppProvider({children}: {children: ReactNode}) {
         addWorkoutSample,
         saveWorkoutHistory,
         loadWorkoutHistory,
+        updateWorkout,
         saveUserSettings,
         canUseFeature,
         effectiveMaxHR,
