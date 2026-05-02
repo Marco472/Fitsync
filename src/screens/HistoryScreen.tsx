@@ -14,6 +14,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAppContext} from '../context/AppContext';
 import {healthKitService} from '../services/HealthKitService';
 import {exportWorkoutCsv, exportWorkoutJson, exportHistoryCsv} from '../services/ExportService';
+import {SparkChart} from '../components/SparkChart';
 import {COLORS, SPACING, RADIUS} from '../theme';
 import {type Workout} from '../types';
 import {
@@ -318,6 +319,35 @@ function WorkoutDetailModal({
             <Text style={styles.detailValue}>{workout.samples.length}</Text>
           </View>
 
+          {/* Sample charts */}
+          {(() => {
+            const hrData  = workout.samples.map(s => s.heartRate).filter((v): v is number => v != null);
+            const pwrData = workout.samples.map(s => s.power).filter((v): v is number => v != null);
+            const spdData = workout.samples.map(s => s.speed).filter((v): v is number => v != null);
+            return (hrData.length >= 3 || pwrData.length >= 3 || spdData.length >= 3) ? (
+              <View style={styles.chartsSection}>
+                {hrData.length >= 3 && (
+                  <View style={styles.chartBlock}>
+                    <Text style={styles.chartBlockLabel}>Heart Rate</Text>
+                    <SparkChart data={hrData} color={COLORS.heartRate} height={52} />
+                  </View>
+                )}
+                {pwrData.length >= 3 && (
+                  <View style={styles.chartBlock}>
+                    <Text style={styles.chartBlockLabel}>Power</Text>
+                    <SparkChart data={pwrData} color={COLORS.power} height={52} />
+                  </View>
+                )}
+                {spdData.length >= 3 && (
+                  <View style={styles.chartBlock}>
+                    <Text style={styles.chartBlockLabel}>Speed</Text>
+                    <SparkChart data={spdData} color={COLORS.speed} height={52} />
+                  </View>
+                )}
+              </View>
+            ) : null;
+          })()}
+
           {/* Sync to HealthKit */}
           <View style={styles.syncSection}>
             {workout.syncedToHealthKit ? (
@@ -464,6 +494,22 @@ const styles = StyleSheet.create({
   },
   detailLabel: {fontSize: 14, color: COLORS.textSecondary},
   detailValue: {fontSize: 14, fontWeight: '600', color: COLORS.text},
+  chartsSection: {marginTop: SPACING.md, gap: SPACING.sm},
+  chartBlock: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  chartBlockLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: SPACING.xs,
+  },
   syncSection: {marginTop: SPACING.xl},
   syncedState: {
     flexDirection: 'row',

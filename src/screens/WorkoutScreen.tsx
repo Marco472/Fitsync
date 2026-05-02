@@ -381,8 +381,16 @@ export function WorkoutScreen() {
   const hrZone       = currentHR ? getHRZone(currentHR, maxHR) : null;
   const powerZone    = currentPower && ftp > 0 ? getPowerZone(currentPower, ftp) : null;
 
-  const hrSamples = state.activeWorkout?.samples.filter(s => s.heartRate).map(s => s.heartRate!) ?? [];
+  const hrSamples    = state.activeWorkout?.samples.filter(s => s.heartRate).map(s => s.heartRate!) ?? [];
   const powerSamples = state.activeWorkout?.samples.filter(s => s.power).map(s => s.power!) ?? [];
+  const spdSamples   = state.activeWorkout?.samples.filter(s => s.speed).map(s => s.speed!) ?? [];
+
+  const avgOf = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+  const avgHR    = hrSamples.length >= 2 ? avgOf(hrSamples) : null;
+  const avgPower = powerSamples.length >= 2 ? avgOf(powerSamples) : null;
+  const avgSpeed = spdSamples.length >= 2
+    ? Math.round((spdSamples.reduce((a, b) => a + b, 0) / spdSamples.length) * 10) / 10
+    : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -490,6 +498,30 @@ export function WorkoutScreen() {
             icon="🔄"
           />
         </View>
+
+        {/* Rolling averages (shown once ≥2 samples exist) */}
+        {isActive && (avgHR || avgPower || avgSpeed) && (
+          <View style={styles.avgRow}>
+            {avgHR && (
+              <View style={styles.avgItem}>
+                <Text style={styles.avgValue}>{avgHR}</Text>
+                <Text style={styles.avgLabel}>Avg HR</Text>
+              </View>
+            )}
+            {avgSpeed && (
+              <View style={styles.avgItem}>
+                <Text style={styles.avgValue}>{formatSpeed(avgSpeed)}</Text>
+                <Text style={styles.avgLabel}>Avg Speed</Text>
+              </View>
+            )}
+            {avgPower && (
+              <View style={styles.avgItem}>
+                <Text style={styles.avgValue}>{formatPower(avgPower)}</Text>
+                <Text style={styles.avgLabel}>Avg Power</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Pace rows */}
         {workoutType === 'running' && currentSpeed ? (
@@ -873,6 +905,25 @@ const styles = StyleSheet.create({
   metricValue: {fontSize: 18, fontWeight: '700'},
   metricSub: {fontSize: 10, fontWeight: '700', marginTop: 1, opacity: 0.8},
   metricLabel: {fontSize: 11, color: COLORS.textMuted, marginTop: 2},
+  avgRow: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.sm,
+    overflow: 'hidden',
+  },
+  avgItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
+    // last child has no border — handled by removing it conditionally
+  },
+  avgValue: {fontSize: 16, fontWeight: '700', color: COLORS.textSecondary},
+  avgLabel: {fontSize: 10, color: COLORS.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5},
   paceCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.md,

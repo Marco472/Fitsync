@@ -17,10 +17,11 @@ import {
   formatCalories,
   formatHeartRate,
   formatPower,
+  formatCadence,
   workoutTypeLabel,
   workoutTypeIcon,
 } from '../utils/formatters';
-import {startOfWeek, startOfMonth, isAfter} from 'date-fns';
+import {subDays, startOfWeek, startOfMonth, isAfter} from 'date-fns';
 
 type Period = 'week' | 'month' | 'all';
 

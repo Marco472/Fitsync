@@ -437,12 +437,22 @@ export function AppProvider({children}: {children: ReactNode}) {
       return sum + (end - p.pausedAt);
     }, 0);
 
+    // Compute aggregate metrics from samples
+    const hrSamples   = active.samples.map(s => s.heartRate).filter((v): v is number => v != null);
+    const spdSamples  = active.samples.map(s => s.speed).filter((v): v is number => v != null);
+    const pwrSamples  = active.samples.map(s => s.power).filter((v): v is number => v != null);
+    const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : undefined;
+
     const finished: Workout = {
       ...active,
       endTime,
       duration: Math.floor((endTime - active.startTime - pausedMs) / 1000),
       totalCalories: kcal,
       status: 'completed',
+      averageHeartRate: active.averageHeartRate ?? avg(hrSamples),
+      maxHeartRate: active.maxHeartRate ?? (hrSamples.length ? Math.max(...hrSamples) : undefined),
+      averageSpeed: active.averageSpeed ?? avg(spdSamples),
+      averagePower: active.averagePower ?? avg(pwrSamples),
     };
 
     // Update personal records from full history + this new workout

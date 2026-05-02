@@ -19,7 +19,7 @@ import {formatDuration, formatDistance, workoutTypeLabel, workoutTypeIcon} from 
 type NavProp = BottomTabNavigationProp<RootTabParamList, 'Home'>;
 
 export function HomeScreen() {
-  const {state, dispatch, loadWorkoutHistory} = useAppContext();
+  const {state, dispatch} = useAppContext();
   const navigation = useNavigation<NavProp>();
 
   const isPro = state.membership.tier === 'pro';
@@ -28,7 +28,6 @@ export function HomeScreen() {
   const nearLimit = !isPro && historyCount >= Math.floor((historyLimit as number) * 0.8);
 
   useEffect(() => {
-    loadWorkoutHistory();
     requestHealthKit();
   }, []);
 
