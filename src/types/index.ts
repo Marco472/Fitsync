@@ -15,8 +15,8 @@ export type DeviceType =
  * Used for display and to choose the right data parser.
  */
 export type DeviceBrand =
-  | 'concept2'   // PM5 monitor (RowErg, BikeErg, SkiErg)
-  | 'keiser'     // M-series (M3i, M5, M7, M8i)
+  | 'concept2' // PM5 monitor (RowErg, BikeErg, SkiErg)
+  | 'keiser' // M-series (M3i, M5, M7, M8i)
   | 'life_fitness'
   | 'technogym'
   | 'matrix'
@@ -27,7 +27,7 @@ export type DeviceBrand =
   | 'echelon'
   | 'nordictrack'
   | 'bowflex'
-  | 'generic';   // standard FTMS / HRS
+  | 'generic'; // standard FTMS / HRS
 
 export interface BLEDevice {
   id: string;
@@ -48,88 +48,89 @@ export interface BLECharacteristic {
 // ─── FTMS (Fitness Machine Service) Data ─────────────────────────────────────
 
 export interface TreadmillData {
-  instantaneousSpeed: number;       // km/h
-  averageSpeed?: number;            // km/h
-  totalDistance?: number;           // meters
-  inclineAngle?: number;            // degrees
-  rampAngle?: number;               // degrees
-  positiveElevationGain?: number;   // meters
-  negativeElevationGain?: number;   // meters
-  instantaneousPace?: number;       // km/min
-  averagePace?: number;             // km/min
-  instantaneousHeartRate?: number;  // bpm
-  averageHeartRate?: number;        // bpm
+  instantaneousSpeed: number; // km/h
+  averageSpeed?: number; // km/h
+  totalDistance?: number; // meters
+  inclineAngle?: number; // degrees
+  rampAngle?: number; // degrees
+  positiveElevationGain?: number; // meters
+  negativeElevationGain?: number; // meters
+  instantaneousPace?: number; // km/min
+  averagePace?: number; // km/min
+  instantaneousHeartRate?: number; // bpm
+  averageHeartRate?: number; // bpm
   metabolicEquivalent?: number;
-  elapsedTime?: number;             // seconds
-  remainingTime?: number;           // seconds
+  elapsedTime?: number; // seconds
+  remainingTime?: number; // seconds
 }
 
 export interface IndoorBikeData {
-  instantaneousSpeed: number;       // km/h
-  averageSpeed?: number;            // km/h
-  instantaneousCadence?: number;    // rpm
-  averageCadence?: number;          // rpm
-  totalDistance?: number;           // meters
+  instantaneousSpeed: number; // km/h
+  averageSpeed?: number; // km/h
+  instantaneousCadence?: number; // rpm
+  averageCadence?: number; // rpm
+  totalDistance?: number; // meters
   resistanceLevel?: number;
-  instantaneousPower?: number;      // watts
-  averagePower?: number;            // watts
-  totalEnergy?: number;             // kcal
-  energyPerHour?: number;           // kcal/h
-  energyPerMinute?: number;         // kcal/min
-  instantaneousHeartRate?: number;  // bpm
-  averageHeartRate?: number;        // bpm
+  instantaneousPower?: number; // watts
+  averagePower?: number; // watts
+  totalEnergy?: number; // kcal
+  energyPerHour?: number; // kcal/h
+  energyPerMinute?: number; // kcal/min
+  instantaneousHeartRate?: number; // bpm
+  averageHeartRate?: number; // bpm
   metabolicEquivalent?: number;
-  elapsedTime?: number;             // seconds
-  remainingTime?: number;           // seconds
+  elapsedTime?: number; // seconds
+  remainingTime?: number; // seconds
 }
 
 export interface RowerData {
-  strokeRate?: number;              // strokes/min
+  strokeRate?: number; // strokes/min
   strokeCount?: number;
-  averageStrokeRate?: number;       // strokes/min
-  totalDistance?: number;           // meters
-  instantaneousPace?: number;       // seconds/500m
-  averagePace?: number;             // seconds/500m
-  instantaneousPower?: number;      // watts
-  averagePower?: number;            // watts
+  averageStrokeRate?: number; // strokes/min
+  totalDistance?: number; // meters
+  instantaneousPace?: number; // seconds/500m
+  averagePace?: number; // seconds/500m
+  instantaneousPower?: number; // watts
+  averagePower?: number; // watts
   resistanceLevel?: number;
-  totalEnergy?: number;             // kcal
-  energyPerHour?: number;           // kcal/h
-  energyPerMinute?: number;         // kcal/min
-  instantaneousHeartRate?: number;  // bpm
-  averageHeartRate?: number;        // bpm
-  elapsedTime?: number;             // seconds
-  remainingTime?: number;           // seconds
+  totalEnergy?: number; // kcal
+  energyPerHour?: number; // kcal/h
+  energyPerMinute?: number; // kcal/min
+  instantaneousHeartRate?: number; // bpm
+  averageHeartRate?: number; // bpm
+  metabolicEquivalent?: number;
+  elapsedTime?: number; // seconds
+  remainingTime?: number; // seconds
 }
 
 /** Keiser M-series proprietary broadcast data */
 export interface KeiserBikeData {
-  cadence: number;          // rpm
-  heartRate: number;        // bpm (0 if no HR strap)
-  power: number;            // watts
-  calories: number;         // kcal
-  elapsedTime: number;      // seconds
-  gear: number;             // 1–24
+  cadence: number; // rpm
+  heartRate: number; // bpm (0 if no HR strap)
+  power: number; // watts
+  calories: number; // kcal
+  elapsedTime: number; // seconds
+  gear: number; // 1–24
   instantaneousSpeed: number; // derived: km/h (from power/cadence estimate)
 }
 
 /** Concept2 PM5 General Status row data */
 export interface Concept2RowingData {
-  elapsedTime: number;       // seconds (0.01 resolution)
-  distance: number;          // meters (0.1 resolution)
-  workoutState: number;      // 0=idle, 1=active, 2=paused, …
+  elapsedTime: number; // seconds (0.01 resolution)
+  distance: number; // meters (0.1 resolution)
+  workoutState: number; // 0=idle, 1=active, 2=paused, …
   rowingState: number;
   strokeState: number;
   totalWorkDistance: number; // meters
-  workPerStroke: number;     // joules
-  strokeRate: number;        // strokes/min
+  workPerStroke: number; // joules
+  strokeRate: number; // strokes/min
   strokeCount: number;
-  averagePace: number;       // seconds/500m
-  instantaneousPower: number;// watts
-  averagePower: number;      // watts
-  averageCalories: number;   // kcal/hr
-  heartRate: number;         // bpm
-  currentPace: number;       // seconds/500m
+  averagePace: number; // seconds/500m
+  instantaneousPower: number; // watts
+  averagePower: number; // watts
+  averageCalories: number; // kcal/hr
+  heartRate: number; // bpm
+  currentPace: number; // seconds/500m
 }
 
 export type MachineData =
@@ -143,7 +144,7 @@ export interface HeartRateData {
   bpm: number;
   contactDetected?: boolean;
   energyExpended?: number; // kJ
-  rrIntervals?: number[];  // ms
+  rrIntervals?: number[]; // ms
 }
 
 // ─── Workout Types ────────────────────────────────────────────────────────────
@@ -171,7 +172,7 @@ export interface WorkoutSample {
 export type WorkoutStatus = 'active' | 'paused' | 'completed';
 
 export interface WorkoutPausePeriod {
-  pausedAt: number;   // unix ms
+  pausedAt: number; // unix ms
   resumedAt?: number; // unix ms (undefined while still paused)
 }
 
@@ -224,18 +225,18 @@ export interface Workout {
   deviceId?: string;
   deviceName?: string;
   deviceBrand?: DeviceBrand;
-  startTime: number;  // unix ms
-  endTime?: number;   // unix ms
+  startTime: number; // unix ms
+  endTime?: number; // unix ms
   /** Active (moving) duration in seconds — excludes paused time */
   duration: number;
   status?: WorkoutStatus;
   pausePeriods?: WorkoutPausePeriod[];
-  totalDistance?: number;   // meters
-  totalCalories?: number;   // kcal
+  totalDistance?: number; // meters
+  totalCalories?: number; // kcal
   averageHeartRate?: number;
   maxHeartRate?: number;
-  averageSpeed?: number;    // km/h
-  averagePower?: number;    // watts
+  averageSpeed?: number; // km/h
+  averagePower?: number; // watts
   samples: WorkoutSample[];
   syncedToHealthKit: boolean;
   healthKitWorkoutId?: string;
@@ -277,9 +278,9 @@ export const FEATURE_LIMITS = {
     maxConnectedDevices: 1,
     maxHistoryEntries: 10,
     healthKitAutoSync: false,
-    advancedMetrics: false,     // power zones, stroke analytics, etc.
+    advancedMetrics: false, // power zones, stroke analytics, etc.
     exportCsv: false,
-    multiDeviceSession: false,  // e.g. bike + HR strap simultaneously
+    multiDeviceSession: false, // e.g. bike + HR strap simultaneously
   },
   pro: {
     maxConnectedDevices: 4,
@@ -327,10 +328,10 @@ export type UnitSystem = 'metric' | 'imperial';
 
 export interface UserSettings {
   unitSystem: UnitSystem;
-  weightKg: number;          // for MET calorie estimation
-  ageYears: number;          // for HR zone calculation
-  maxHeartRate: number;      // bpm — 0 means auto-calculate (220 - age)
-  ftpWatts: number;          // Functional Threshold Power for power zones (0 = unset)
+  weightKg: number; // for MET calorie estimation
+  ageYears: number; // for HR zone calculation
+  maxHeartRate: number; // bpm — 0 means auto-calculate (220 - age)
+  ftpWatts: number; // Functional Threshold Power for power zones (0 = unset)
   defaultWorkoutType: WorkoutType;
   /** Seconds between automatic workout samples (default 5) */
   sampleIntervalSeconds: number;
@@ -340,7 +341,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   unitSystem: 'metric',
   weightKg: 70,
   ageYears: 30,
-  maxHeartRate: 0,          // 0 = auto (220 - age)
+  maxHeartRate: 0, // 0 = auto (220 - age)
   ftpWatts: 0,
   defaultWorkoutType: 'other',
   sampleIntervalSeconds: 5,
@@ -356,13 +357,13 @@ export interface PersonalRecord {
 }
 
 export interface PersonalRecords {
-  longestDuration: PersonalRecord | null;     // seconds
-  longestDistance: PersonalRecord | null;     // meters
-  fastestPace: PersonalRecord | null;         // seconds/km
-  maxPower: PersonalRecord | null;            // watts
-  maxHeartRate: PersonalRecord | null;        // bpm
-  mostCalories: PersonalRecord | null;        // kcal
-  highestStrokeRate: PersonalRecord | null;   // strokes/min
+  longestDuration: PersonalRecord | null; // seconds
+  longestDistance: PersonalRecord | null; // meters
+  fastestPace: PersonalRecord | null; // seconds/km
+  maxPower: PersonalRecord | null; // watts
+  maxHeartRate: PersonalRecord | null; // bpm
+  mostCalories: PersonalRecord | null; // kcal
+  highestStrokeRate: PersonalRecord | null; // strokes/min
 }
 
 // ─── Navigation Types ─────────────────────────────────────────────────────────

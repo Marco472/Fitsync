@@ -8,8 +8,7 @@
 
 import React, {useMemo} from 'react';
 import {View, StyleSheet} from 'react-native';
-import Svg, {Polyline, Polygon, Defs, LinearGradient, Stop, Rect} from 'react-native-svg';
-import {COLORS} from '../theme';
+import Svg, {Polyline, Polygon, Defs, LinearGradient, Stop} from 'react-native-svg';
 
 interface SparkChartProps {
   /** Array of numeric values to plot (e.g. heart rate or power readings). */
@@ -30,13 +29,15 @@ export function SparkChart({data, color, height, width: widthProp}: SparkChartPr
   const width = widthProp ?? containerWidth;
 
   const points = useMemo(() => {
-    if (data.length < 2 || width === 0) return null;
+    if (data.length < 2 || width === 0) {
+      return null;
+    }
 
     const minVal = Math.min(...data);
     const maxVal = Math.max(...data);
-    const range  = maxVal - minVal || 1; // avoid division by zero
+    const range = maxVal - minVal || 1; // avoid division by zero
 
-    const chartW = width  - PADDING * 2;
+    const chartW = width - PADDING * 2;
     const chartH = height - PADDING * 2;
 
     const pts = data.map((v, i) => {
@@ -49,7 +50,7 @@ export function SparkChart({data, color, height, width: widthProp}: SparkChartPr
     const linePoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 
     // Build the filled polygon (line + bottom corners to close shape)
-    const last  = pts[pts.length - 1];
+    const last = pts[pts.length - 1];
     const first = pts[0];
     const fillPoints = [
       ...pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`),
@@ -64,22 +65,22 @@ export function SparkChart({data, color, height, width: widthProp}: SparkChartPr
     <View
       style={[styles.container, {height}]}
       onLayout={e => {
-        if (!widthProp) setContainerWidth(e.nativeEvent.layout.width);
-      }}>
+        if (!widthProp) {
+          setContainerWidth(e.nativeEvent.layout.width);
+        }
+      }}
+    >
       {points && width > 0 && (
         <Svg width={width} height={height}>
           <Defs>
             <LinearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%"   stopColor={color} stopOpacity={0.35} />
+              <Stop offset="0%" stopColor={color} stopOpacity={0.35} />
               <Stop offset="100%" stopColor={color} stopOpacity={0.03} />
             </LinearGradient>
           </Defs>
 
           {/* Filled area under the line */}
-          <Polygon
-            points={points.fillPoints}
-            fill="url(#sparkFill)"
-          />
+          <Polygon points={points.fillPoints} fill="url(#sparkFill)" />
 
           {/* The line itself */}
           <Polyline

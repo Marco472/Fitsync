@@ -33,10 +33,13 @@ export function DevicesScreen() {
       cleanup();
       stopScan();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function startScan() {
-    if (state.isScanning) return;
+    if (state.isScanning) {
+      return;
+    }
     dispatch({type: 'CLEAR_SCANNED_DEVICES'});
     dispatch({type: 'SET_SCANNING', payload: true});
 
@@ -66,14 +69,18 @@ export function DevicesScreen() {
   const atLimit = state.connectedDevices.length >= deviceLimit;
 
   async function connectToDevice(device: BLEDevice) {
-    if (connecting) return;
+    if (connecting) {
+      return;
+    }
 
     // Enforce device limit
     if (atLimit) {
       const tierLabel = state.membership.tier === 'free' ? 'Free' : 'Pro';
       Alert.alert(
         'Device Limit Reached',
-        `${tierLabel} plan supports up to ${deviceLimit} device${deviceLimit > 1 ? 's' : ''}. Disconnect one first.`,
+        `${tierLabel} plan supports up to ${deviceLimit} device${
+          deviceLimit > 1 ? 's' : ''
+        }. Disconnect one first.`,
       );
       return;
     }
@@ -118,16 +125,8 @@ export function DevicesScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Devices</Text>
           <View style={styles.btBadge}>
-            <Text
-              style={[
-                styles.btIndicator,
-                isBluetoothOn ? styles.btOn : styles.btOff,
-              ]}>
-              ●
-            </Text>
-            <Text style={styles.btLabel}>
-              {isBluetoothOn ? 'Bluetooth On' : 'Bluetooth Off'}
-            </Text>
+            <Text style={[styles.btIndicator, isBluetoothOn ? styles.btOn : styles.btOff]}>●</Text>
+            <Text style={styles.btLabel}>{isBluetoothOn ? 'Bluetooth On' : 'Bluetooth Off'}</Text>
           </View>
         </View>
 
@@ -141,9 +140,7 @@ export function DevicesScreen() {
                 <Text style={styles.connectedStatus}>Connected</Text>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={() => disconnectDevice(d.id)}
-              style={styles.disconnectBtn}>
+            <TouchableOpacity onPress={() => disconnectDevice(d.id)} style={styles.disconnectBtn}>
               <Text style={styles.disconnectText}>Disconnect</Text>
             </TouchableOpacity>
           </View>
@@ -158,7 +155,8 @@ export function DevicesScreen() {
           ]}
           onPress={state.isScanning ? stopScan : startScan}
           disabled={!isBluetoothOn}
-          activeOpacity={0.8}>
+          activeOpacity={0.8}
+        >
           {state.isScanning ? (
             <ActivityIndicator color={COLORS.background} size="small" />
           ) : (
@@ -221,7 +219,8 @@ function DeviceRow({
     <TouchableOpacity
       style={[styles.deviceRow, isConnected && styles.deviceRowConnected]}
       onPress={onPress}
-      activeOpacity={0.7}>
+      activeOpacity={0.7}
+    >
       <Text style={styles.deviceIcon}>{deviceTypeIcon(device.deviceType)}</Text>
       <View style={styles.deviceInfo}>
         <Text style={styles.deviceName}>{device.name ?? 'Unnamed Device'}</Text>
@@ -235,13 +234,9 @@ function DeviceRow({
           <ActivityIndicator color={COLORS.primary} size="small" style={styles.connBtn} />
         ) : (
           <View
-            style={[
-              styles.connBtn,
-              isConnected ? styles.connBtnConnected : styles.connBtnIdle,
-            ]}>
-            <Text style={styles.connBtnText}>
-              {isConnected ? 'Connected' : 'Connect'}
-            </Text>
+            style={[styles.connBtn, isConnected ? styles.connBtnConnected : styles.connBtnIdle]}
+          >
+            <Text style={styles.connBtnText}>{isConnected ? 'Connected' : 'Connect'}</Text>
           </View>
         )}
       </View>
@@ -251,12 +246,18 @@ function DeviceRow({
 
 function mapBleState(state: State): import('../types').BluetoothState {
   switch (state) {
-    case State.PoweredOn: return 'powered_on';
-    case State.PoweredOff: return 'powered_off';
-    case State.Unauthorized: return 'unauthorized';
-    case State.Unsupported: return 'unsupported';
-    case State.Resetting: return 'resetting';
-    default: return 'unknown';
+    case State.PoweredOn:
+      return 'powered_on';
+    case State.PoweredOff:
+      return 'powered_off';
+    case State.Unauthorized:
+      return 'unauthorized';
+    case State.Unsupported:
+      return 'unsupported';
+    case State.Resetting:
+      return 'resetting';
+    default:
+      return 'unknown';
   }
 }
 

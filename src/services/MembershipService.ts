@@ -37,33 +37,33 @@ import {
   clearMembershipSecure,
 } from '../security/SecureStorage';
 import {detectJailbreak} from '../security/JailbreakDetector';
-import {
-  validateReceiptWithBackend,
-  isValidationRateLimited,
-} from '../security/IAPReceiptValidator';
-import {
-  IAP_PRODUCTS,
-  type IAPProductId,
-  type MembershipTier,
-  type MembershipState,
-} from '../types';
-
+import {validateReceiptWithBackend, isValidationRateLimited} from '../security/IAPReceiptValidator';
+import {IAP_PRODUCTS, type IAPProductId, type MembershipTier, type MembershipState} from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function productIdToTier(productId: string): MembershipTier {
-  if (
-    productId === IAP_PRODUCTS.PRO_MONTHLY ||
-    productId === IAP_PRODUCTS.PRO_ANNUAL
-  ) {
+  if (productId === IAP_PRODUCTS.PRO_MONTHLY || productId === IAP_PRODUCTS.PRO_ANNUAL) {
     return 'pro';
   }
   return 'free';
 }
 
 function isExpired(expiresAt: string | null): boolean {
-  if (!expiresAt) return true;
+  if (!expiresAt) {
+    return true;
+  }
   return new Date(expiresAt) < new Date();
+}
+
+// `expirationDateIOS` was dropped from react-native-iap's published types in
+// v12+ (expiry tracking is expected to come from server-side receipt
+// validation), but the native iOS bridge still returns it on the purchase
+// object. Read it defensively without asserting a type the library no
+// longer declares.
+function expirationDateIOS(purchase: ProductPurchase | SubscriptionPurchase): string | null {
+  const value = (purchase as unknown as {expirationDateIOS?: string}).expirationDateIOS;
+  return typeof value === 'string' ? value : null;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -79,7 +79,9 @@ export class MembershipService {
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   async connect(): Promise<void> {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== 'ios') {
+      return;
+    }
     try {
       await initConnection();
       this.emit({isConnected: true});
@@ -90,12 +92,16 @@ export class MembershipService {
 
     // Run jailbreak detection in the background; if detected, force
     // server-side validation on any entitlement check.
-    detectJailbreak().then(result => {
-      if (result.isJailbroken) {
-        if (__DEV__) console.warn('[Security] Jailbreak indicators:', result.indicators);
-        this.deviceIsCompromised = true;
-      }
-    }).catch(() => {});
+    detectJailbreak()
+      .then(result => {
+        if (result.isJailbroken) {
+          if (__DEV__) {
+            console.warn('[Security] Jailbreak indicators:', result.indicators);
+          }
+          this.deviceIsCompromised = true;
+        }
+      })
+      .catch(() => {});
   }
 
   private deviceIsCompromised = false;
@@ -124,7 +130,9 @@ export class MembershipService {
   // ── Products ───────────────────────────────────────────────────────────────
 
   async loadProducts(): Promise<Subscription[]> {
-    if (Platform.OS !== 'ios') return [];
+    if (Platform.OS !== 'ios') {
+      return [];
+    }
     try {
       this.products = await getSubscriptions({
         skus: [IAP_PRODUCTS.PRO_MONTHLY, IAP_PRODUCTS.PRO_ANNUAL],
@@ -158,20 +166,17 @@ export class MembershipService {
     if (Platform.OS === 'ios') {
       try {
         const purchases = await getAvailablePurchases();
-        const activePro = purchases.find(p =>
-          (p.productId === IAP_PRODUCTS.PRO_MONTHLY ||
-            p.productId === IAP_PRODUCTS.PRO_ANNUAL) &&
-          !isExpired(
-            (p as SubscriptionPurchase).expirationDateIOS ?? null,
-          ),
+        const activePro = purchases.find(
+          p =>
+            (p.productId === IAP_PRODUCTS.PRO_MONTHLY || p.productId === IAP_PRODUCTS.PRO_ANNUAL) &&
+            !isExpired(expirationDateIOS(p)),
         );
 
         if (activePro) {
           const state: MembershipState = {
             tier: 'pro',
             activeProductId: activePro.productId as IAPProductId,
-            expiresAt:
-              (activePro as SubscriptionPurchase).expirationDateIOS ?? null,
+            expiresAt: expirationDateIOS(activePro),
             isLoading: false,
             isConnected: true,
           };
@@ -198,7 +203,9 @@ export class MembershipService {
   // ── Purchase ───────────────────────────────────────────────────────────────
 
   async purchase(productId: IAPProductId): Promise<boolean> {
-    if (Platform.OS !== 'ios') return false;
+    if (Platform.OS !== 'ios') {
+      return false;
+    }
     try {
       await requestSubscription({sku: productId});
       return true;
@@ -237,13 +244,11 @@ export class MembershipService {
     }
 
     const tier = productIdToTier(purchase.productId);
-    const expiresAt =
-      (purchase as SubscriptionPurchase).expirationDateIOS ?? null;
+    const expiresAt = expirationDateIOS(purchase);
 
     const state: MembershipState = {
       tier,
-      activeProductId:
-        tier === 'pro' ? (purchase.productId as IAPProductId) : null,
+      activeProductId: tier === 'pro' ? (purchase.productId as IAPProductId) : null,
       expiresAt,
       isLoading: false,
       isConnected: true,

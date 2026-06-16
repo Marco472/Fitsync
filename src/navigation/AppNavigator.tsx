@@ -48,59 +48,48 @@ export function AppNavigator() {
           headerShown: false,
           tabBarStyle: styles.tabBar,
           tabBarShowLabel: false,
-        }}>
+        }}
+      >
         <Tab.Screen
           name="Home"
           component={HomeScreen}
           options={{
-            tabBarIcon: ({focused}) => (
-              <TabIcon icon="🏠" label="Home" focused={focused} />
-            ),
+            tabBarIcon: ({focused}) => <TabIcon icon="🏠" label="Home" focused={focused} />,
           }}
         />
         <Tab.Screen
           name="Devices"
           component={DevicesScreen}
           options={{
-            tabBarIcon: ({focused}) => (
-              <TabIcon icon="📡" label="Devices" focused={focused} />
-            ),
+            tabBarIcon: ({focused}) => <TabIcon icon="📡" label="Devices" focused={focused} />,
           }}
         />
         <Tab.Screen
           name="Workout"
           component={WorkoutScreen}
           options={{
-            tabBarIcon: ({focused}) => (
-              <TabIcon icon="⚡" label="Workout" focused={focused} />
-            ),
+            tabBarIcon: ({focused}) => <TabIcon icon="⚡" label="Workout" focused={focused} />,
           }}
         />
         <Tab.Screen
           name="History"
           component={HistoryScreen}
           options={{
-            tabBarIcon: ({focused}) => (
-              <TabIcon icon="📋" label="History" focused={focused} />
-            ),
+            tabBarIcon: ({focused}) => <TabIcon icon="📋" label="History" focused={focused} />,
           }}
         />
         <Tab.Screen
           name="Analytics"
           component={AnalyticsScreen}
           options={{
-            tabBarIcon: ({focused}) => (
-              <TabIcon icon="📊" label="Analytics" focused={focused} />
-            ),
+            tabBarIcon: ({focused}) => <TabIcon icon="📊" label="Analytics" focused={focused} />,
           }}
         />
         <Tab.Screen
           name="Settings"
           component={SettingsScreen}
           options={{
-            tabBarIcon: ({focused}) => (
-              <TabIcon icon="⚙️" label="Settings" focused={focused} />
-            ),
+            tabBarIcon: ({focused}) => <TabIcon icon="⚙️" label="Settings" focused={focused} />,
           }}
         />
         <Tab.Screen

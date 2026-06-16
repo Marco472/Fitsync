@@ -14,8 +14,14 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {type Subscription as IAPSubscription} from 'react-native-iap';
 import {useAppContext} from '../context/AppContext';
 import {membershipService} from '../services/MembershipService';
-import {IAP_PRODUCTS, FEATURE_LIMITS, type IAPProductId} from '../types';
+import {IAP_PRODUCTS, type IAPProductId} from '../types';
 import {COLORS, SPACING, RADIUS} from '../theme';
+
+// react-native-iap's `Subscription` is a union across iOS/Android/Amazon —
+// FitSync is iOS-only, so narrow to the variant that has pricing fields.
+function priceFields(p: IAPSubscription): {price?: string; localizedPrice?: string} {
+  return 'localizedPrice' in p ? p : {};
+}
 
 const FREE_FEATURES = [
   {icon: '📡', text: 'Connect 1 device at a time'},
@@ -63,22 +69,31 @@ export function MembershipScreen() {
       // Fallback prices while products load
       return id === IAP_PRODUCTS.PRO_ANNUAL ? '$79.99/yr' : '$9.99/mo';
     }
-    return product.localizedPrice ?? (id === IAP_PRODUCTS.PRO_ANNUAL ? '$79.99/yr' : '$9.99/mo');
+    return (
+      priceFields(product).localizedPrice ??
+      (id === IAP_PRODUCTS.PRO_ANNUAL ? '$79.99/yr' : '$9.99/mo')
+    );
   }
 
   function annualSavings(): string {
     const monthly = getProduct(IAP_PRODUCTS.PRO_MONTHLY);
-    const annual  = getProduct(IAP_PRODUCTS.PRO_ANNUAL);
-    if (!monthly || !annual) return 'Save 33%';
-    const monthlyNum = parseFloat(monthly.price ?? '9.99');
-    const annualNum  = parseFloat(annual.price ?? '79.99');
-    if (!monthlyNum) return 'Save 33%';
+    const annual = getProduct(IAP_PRODUCTS.PRO_ANNUAL);
+    if (!monthly || !annual) {
+      return 'Save 33%';
+    }
+    const monthlyNum = parseFloat(priceFields(monthly).price ?? '9.99');
+    const annualNum = parseFloat(priceFields(annual).price ?? '79.99');
+    if (!monthlyNum) {
+      return 'Save 33%';
+    }
     const saving = Math.round((1 - annualNum / (monthlyNum * 12)) * 100);
     return `Save ${saving}%`;
   }
 
   async function handlePurchase() {
-    if (isPurchasing) return;
+    if (isPurchasing) {
+      return;
+    }
     setIsPurchasing(true);
     try {
       const ok = await membershipService.purchase(selected);
@@ -93,7 +108,9 @@ export function MembershipScreen() {
   }
 
   async function handleRestore() {
-    if (isRestoring) return;
+    if (isRestoring) {
+      return;
+    }
     setIsRestoring(true);
     try {
       const newState = await membershipService.restore();
@@ -101,7 +118,10 @@ export function MembershipScreen() {
       if (newState.tier === 'pro') {
         Alert.alert('Restored!', 'Your FitSync Pro subscription has been restored.');
       } else {
-        Alert.alert('No Active Subscription', 'We couldn\'t find an active subscription on this Apple ID.');
+        Alert.alert(
+          'No Active Subscription',
+          "We couldn't find an active subscription on this Apple ID.",
+        );
       }
     } finally {
       setIsRestoring(false);
@@ -119,7 +139,12 @@ export function MembershipScreen() {
   }
 
   if (isPro) {
-    return <ProActiveScreen expiresAt={state.membership.expiresAt} productId={state.membership.activeProductId} />;
+    return (
+      <ProActiveScreen
+        expiresAt={state.membership.expiresAt}
+        productId={state.membership.activeProductId}
+      />
+    );
   }
 
   return (
@@ -128,8 +153,8 @@ export function MembershipScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-
+        showsVerticalScrollIndicator={false}
+      >
         {/* Hero */}
         <View style={styles.hero}>
           <Text style={styles.heroIcon}>⚡</Text>
@@ -163,18 +188,15 @@ export function MembershipScreen() {
           style={[styles.ctaBtn, isPurchasing && styles.ctaBtnLoading]}
           onPress={handlePurchase}
           disabled={isPurchasing}
-          activeOpacity={0.85}>
+          activeOpacity={0.85}
+        >
           {isPurchasing ? (
             <ActivityIndicator color={COLORS.background} />
           ) : (
-            <Text style={styles.ctaBtnText}>
-              Start Free Trial
-            </Text>
+            <Text style={styles.ctaBtnText}>Start Free Trial</Text>
           )}
         </TouchableOpacity>
-        <Text style={styles.trialNote}>
-          7-day free trial · Cancel anytime · Auto-renews
-        </Text>
+        <Text style={styles.trialNote}>7-day free trial · Cancel anytime · Auto-renews</Text>
 
         {/* Pro feature list */}
         <Text style={styles.sectionLabel}>Everything in Pro</Text>
@@ -212,23 +234,21 @@ export function MembershipScreen() {
             </Text>
           </TouchableOpacity>
           <Text style={styles.footerDivider}>·</Text>
-          <TouchableOpacity
-            onPress={() => Linking.openURL('https://fitsync.app/privacy')}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://fitsync.app/privacy')}>
             <Text style={styles.footerLink}>Privacy Policy</Text>
           </TouchableOpacity>
           <Text style={styles.footerDivider}>·</Text>
-          <TouchableOpacity
-            onPress={() => Linking.openURL('https://fitsync.app/terms')}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://fitsync.app/terms')}>
             <Text style={styles.footerLink}>Terms of Use</Text>
           </TouchableOpacity>
         </View>
 
         <Text style={styles.legalNote}>
-          Payment will be charged to your Apple ID account at confirmation of purchase.
-          Subscription automatically renews unless it is cancelled at least 24 hours before the end
-          of the current period. Your account will be charged for renewal within 24 hours prior to the
-          end of the current period. You can manage and cancel your subscriptions by going to your
-          App Store account settings after purchase.
+          Payment will be charged to your Apple ID account at confirmation of purchase. Subscription
+          automatically renews unless it is cancelled at least 24 hours before the end of the
+          current period. Your account will be charged for renewal within 24 hours prior to the end
+          of the current period. You can manage and cancel your subscriptions by going to your App
+          Store account settings after purchase.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -244,11 +264,14 @@ function ProActiveScreen({
   expiresAt: string | null;
   productId: IAPProductId | null;
 }) {
-  const planLabel =
-    productId === IAP_PRODUCTS.PRO_ANNUAL ? 'Annual Plan' : 'Monthly Plan';
+  const planLabel = productId === IAP_PRODUCTS.PRO_ANNUAL ? 'Annual Plan' : 'Monthly Plan';
 
   const renewsLabel = expiresAt
-    ? `Renews ${new Date(expiresAt).toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'})}`
+    ? `Renews ${new Date(expiresAt).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })}`
     : 'Active';
 
   return (
@@ -274,7 +297,8 @@ function ProActiveScreen({
         <TouchableOpacity
           style={styles.manageBtn}
           onPress={() => Linking.openURL('https://apps.apple.com/account/subscriptions')}
-          activeOpacity={0.8}>
+          activeOpacity={0.8}
+        >
           <Text style={styles.manageBtnText}>Manage Subscription</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -301,23 +325,18 @@ function PlanCard({
     <TouchableOpacity
       style={[styles.planCard, isSelected && styles.planCardSelected]}
       onPress={onPress}
-      activeOpacity={0.8}>
+      activeOpacity={0.8}
+    >
       <View style={styles.planCardHeader}>
-        <Text style={[styles.planTitle, isSelected && styles.planTitleSelected]}>
-          {title}
-        </Text>
+        <Text style={[styles.planTitle, isSelected && styles.planTitleSelected]}>{title}</Text>
         {badge && (
           <View style={styles.planBadge}>
             <Text style={styles.planBadgeText}>{badge}</Text>
           </View>
         )}
       </View>
-      <Text style={[styles.planPrice, isSelected && styles.planPriceSelected]}>
-        {price}
-      </Text>
-      {perMonth && (
-        <Text style={styles.planPerMonth}>{perMonth} / mo</Text>
-      )}
+      <Text style={[styles.planPrice, isSelected && styles.planPriceSelected]}>{price}</Text>
+      {perMonth && <Text style={styles.planPerMonth}>{perMonth} / mo</Text>}
       <View style={[styles.planCheck, isSelected && styles.planCheckSelected]}>
         {isSelected && <Text style={styles.planCheckMark}>✓</Text>}
       </View>
@@ -344,7 +363,8 @@ function FeatureRow({
           styles.featureText,
           highlight && styles.featureTextHighlight,
           muted && styles.featureTextMuted,
-        ]}>
+        ]}
+      >
         {text}
       </Text>
     </View>
@@ -354,25 +374,29 @@ function FeatureRow({
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const BRAND_BADGES = [
-  {name: 'Concept2',    icon: '🚣', pro: true},
-  {name: 'Keiser',      icon: '🚴', pro: true},
-  {name: 'Life Fitness',icon: '🏃', pro: false},
-  {name: 'Technogym',   icon: '🏋️', pro: false},
-  {name: 'Matrix',      icon: '🏃', pro: false},
-  {name: 'Precor',      icon: '🔄', pro: false},
-  {name: 'Star Trac',   icon: '⭐', pro: false},
-  {name: 'Wahoo',       icon: '🚴', pro: false},
+  {name: 'Concept2', icon: '🚣', pro: true},
+  {name: 'Keiser', icon: '🚴', pro: true},
+  {name: 'Life Fitness', icon: '🏃', pro: false},
+  {name: 'Technogym', icon: '🏋️', pro: false},
+  {name: 'Matrix', icon: '🏃', pro: false},
+  {name: 'Precor', icon: '🔄', pro: false},
+  {name: 'Star Trac', icon: '⭐', pro: false},
+  {name: 'Wahoo', icon: '🚴', pro: false},
   {name: 'NordicTrack', icon: '🏔️', pro: false},
-  {name: 'Bowflex',     icon: '💪', pro: false},
-  {name: 'Echelon',     icon: '🚴', pro: true},
-  {name: 'Any FTMS',    icon: '📡', pro: false},
+  {name: 'Bowflex', icon: '💪', pro: false},
+  {name: 'Echelon', icon: '🚴', pro: true},
+  {name: 'Any FTMS', icon: '📡', pro: false},
 ];
 
 function getAnnualPerMonth(products: IAPSubscription[]): string | undefined {
   const annual = products.find(p => p.productId === IAP_PRODUCTS.PRO_ANNUAL);
-  if (!annual) return undefined;
-  const num = parseFloat(annual.price ?? '79.99');
-  if (!num) return undefined;
+  if (!annual) {
+    return undefined;
+  }
+  const num = parseFloat(priceFields(annual).price ?? '79.99');
+  if (!num) {
+    return undefined;
+  }
   return `$${(num / 12).toFixed(2)}`;
 }
 

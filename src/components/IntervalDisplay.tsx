@@ -26,9 +26,7 @@ export function IntervalDisplay({state: iv}: Props) {
   const blockColor = isWork ? COLORS.primary : COLORS.success;
 
   // Next block info
-  const nextBlockIdx = currentBlock + 1 < program.blocks.length
-    ? currentBlock + 1
-    : null;
+  const nextBlockIdx = currentBlock + 1 < program.blocks.length ? currentBlock + 1 : null;
   const nextBlock = nextBlockIdx != null ? program.blocks[nextBlockIdx] : null;
   // After all blocks in this round, next is round+1 block 0
   const isLastBlockOfRound = currentBlock === program.blocks.length - 1;
@@ -41,7 +39,7 @@ export function IntervalDisplay({state: iv}: Props) {
     : 'Last block';
 
   const totalBlocks = program.blocks.length * program.rounds;
-  const doneBlocks  = currentRound * program.blocks.length + currentBlock;
+  const doneBlocks = currentRound * program.blocks.length + currentBlock;
 
   return (
     <View style={[styles.card, {borderColor: blockColor + '55'}]}>
@@ -70,7 +68,9 @@ export function IntervalDisplay({state: iv}: Props) {
       {/* Next block + total progress */}
       <View style={styles.footerRow}>
         <Text style={styles.nextLabel}>{nextLabel}</Text>
-        <Text style={styles.totalProgress}>{doneBlocks}/{totalBlocks} blocks</Text>
+        <Text style={styles.totalProgress}>
+          {doneBlocks}/{totalBlocks} blocks
+        </Text>
       </View>
     </View>
   );

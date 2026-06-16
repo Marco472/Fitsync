@@ -33,7 +33,9 @@ export async function setSecureItem(key: string, value: string): Promise<void> {
     });
   } catch (e) {
     // Keychain unavailable (e.g. simulator without keychain entitlement) — fallback
-    if (__DEV__) console.warn('[SecureStorage] Keychain write failed, using AsyncStorage:', e);
+    if (__DEV__) {
+      console.warn('[SecureStorage] Keychain write failed, using AsyncStorage:', e);
+    }
     await AsyncStorage.setItem(`@secure_${key}`, value);
   }
 }
@@ -45,7 +47,9 @@ export async function getSecureItem(key: string): Promise<string | null> {
     });
     return result ? result.password : null;
   } catch (e) {
-    if (__DEV__) console.warn('[SecureStorage] Keychain read failed, using AsyncStorage:', e);
+    if (__DEV__) {
+      console.warn('[SecureStorage] Keychain read failed, using AsyncStorage:', e);
+    }
     return AsyncStorage.getItem(`@secure_${key}`);
   }
 }
@@ -68,7 +72,9 @@ export async function saveMembershipSecure<T extends object>(state: T): Promise<
 
 export async function loadMembershipSecure<T extends object>(): Promise<T | null> {
   const raw = await getSecureItem(MEMBERSHIP_KEY);
-  if (!raw) return null;
+  if (!raw) {
+    return null;
+  }
   try {
     return JSON.parse(raw) as T;
   } catch {

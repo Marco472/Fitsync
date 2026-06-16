@@ -1,16 +1,8 @@
 import React, {useMemo, useState} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAppContext} from '../context/AppContext';
 import {COLORS, SPACING, RADIUS} from '../theme';
-import {type Workout} from '../types';
 import {
   formatDuration,
   formatDistance,
@@ -34,13 +26,12 @@ export function AnalyticsScreen() {
   const filteredWorkouts = useMemo(() => {
     const now = Date.now();
     switch (period) {
-      case 'week': return state.workoutHistory.filter(
-        w => isAfter(w.startTime, startOfWeek(now)),
-      );
-      case 'month': return state.workoutHistory.filter(
-        w => isAfter(w.startTime, startOfMonth(now)),
-      );
-      default: return state.workoutHistory;
+      case 'week':
+        return state.workoutHistory.filter(w => isAfter(w.startTime, startOfWeek(now)));
+      case 'month':
+        return state.workoutHistory.filter(w => isAfter(w.startTime, startOfMonth(now)));
+      default:
+        return state.workoutHistory;
     }
   }, [state.workoutHistory, period]);
 
@@ -87,8 +78,8 @@ export function AnalyticsScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Analytics</Text>
 
         {/* Period selector */}
@@ -98,7 +89,8 @@ export function AnalyticsScreen() {
               key={p}
               style={[styles.periodBtn, period === p && styles.periodBtnActive]}
               onPress={() => setPeriod(p)}
-              activeOpacity={0.7}>
+              activeOpacity={0.7}
+            >
               <Text style={[styles.periodLabel, period === p && styles.periodLabelActive]}>
                 {p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'All Time'}
               </Text>
@@ -120,22 +112,25 @@ export function AnalyticsScreen() {
             value={totalCalories > 0 ? formatCalories(totalCalories) : '—'}
             icon="🔥"
           />
-          <BigStatCard
-            label="Avg HR"
-            value={avgHR ? formatHeartRate(avgHR) : '—'}
-            icon="❤️"
-          />
+          <BigStatCard label="Avg HR" value={avgHR ? formatHeartRate(avgHR) : '—'} icon="❤️" />
           <BigStatCard
             label="Workouts/wk"
-            value={period === 'all' && state.workoutHistory.length > 0
-              ? (state.workoutHistory.length / Math.max(1,
-                  Math.ceil(
-                    (Date.now() - Math.min(...state.workoutHistory.map(w => w.startTime))) /
-                    (7 * 86400000),
-                  ),
-                )).toFixed(1)
-              : period === 'week' ? String(filteredWorkouts.length)
-              : (filteredWorkouts.length / 4.3).toFixed(1)}
+            value={
+              period === 'all' && state.workoutHistory.length > 0
+                ? (
+                    state.workoutHistory.length /
+                    Math.max(
+                      1,
+                      Math.ceil(
+                        (Date.now() - Math.min(...state.workoutHistory.map(w => w.startTime))) /
+                          (7 * 86400000),
+                      ),
+                    )
+                  ).toFixed(1)
+                : period === 'week'
+                ? String(filteredWorkouts.length)
+                : (filteredWorkouts.length / 4.3).toFixed(1)
+            }
             icon="📅"
           />
         </View>
@@ -202,18 +197,48 @@ export function AnalyticsScreen() {
           </View>
         ) : (
           <View style={styles.prGrid}>
-            <PRCard label="Longest Session" value={prs.longestDuration ? formatDuration(prs.longestDuration.value) : '—'} icon="⏱️" />
-            <PRCard label="Longest Distance" value={prs.longestDistance ? formatDistance(prs.longestDistance.value) : '—'} icon="📍" />
-            <PRCard label="Most Calories" value={prs.mostCalories ? formatCalories(prs.mostCalories.value) : '—'} icon="🔥" />
-            <PRCard label="Max Heart Rate" value={prs.maxHeartRate ? formatHeartRate(prs.maxHeartRate.value) : '—'} icon="❤️" />
-            <PRCard label="Max Power" value={prs.maxPower ? formatPower(prs.maxPower.value) : '—'} icon="⚡" />
-            <PRCard label="Best Pace" value={prs.fastestPace
-              ? (() => {
-                  const s = Math.round(prs.fastestPace!.value);
-                  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}/km`;
-                })()
-              : '—'} icon="🏃" />
-            <PRCard label="Top Stroke Rate" value={prs.highestStrokeRate ? formatCadence(prs.highestStrokeRate.value) : '—'} icon="🚣" />
+            <PRCard
+              label="Longest Session"
+              value={prs.longestDuration ? formatDuration(prs.longestDuration.value) : '—'}
+              icon="⏱️"
+            />
+            <PRCard
+              label="Longest Distance"
+              value={prs.longestDistance ? formatDistance(prs.longestDistance.value) : '—'}
+              icon="📍"
+            />
+            <PRCard
+              label="Most Calories"
+              value={prs.mostCalories ? formatCalories(prs.mostCalories.value) : '—'}
+              icon="🔥"
+            />
+            <PRCard
+              label="Max Heart Rate"
+              value={prs.maxHeartRate ? formatHeartRate(prs.maxHeartRate.value) : '—'}
+              icon="❤️"
+            />
+            <PRCard
+              label="Max Power"
+              value={prs.maxPower ? formatPower(prs.maxPower.value) : '—'}
+              icon="⚡"
+            />
+            <PRCard
+              label="Best Pace"
+              value={
+                prs.fastestPace
+                  ? (() => {
+                      const s = Math.round(prs.fastestPace!.value);
+                      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}/km`;
+                    })()
+                  : '—'
+              }
+              icon="🏃"
+            />
+            <PRCard
+              label="Top Stroke Rate"
+              value={prs.highestStrokeRate ? formatCadence(prs.highestStrokeRate.value) : '—'}
+              icon="🚣"
+            />
           </View>
         )}
       </ScrollView>
@@ -247,7 +272,13 @@ const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: COLORS.background},
   scroll: {flex: 1},
   content: {padding: SPACING.md, paddingBottom: 60},
-  title: {fontSize: 28, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.md, marginTop: SPACING.sm},
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.sm,
+  },
   // Period
   periodRow: {flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md},
   periodBtn: {
@@ -316,7 +347,13 @@ const styles = StyleSheet.create({
   breakdownLabel: {fontSize: 12, color: COLORS.textSecondary, marginBottom: 2},
   barTrack: {height: 6, backgroundColor: COLORS.border, borderRadius: 3},
   barFill: {height: 6, backgroundColor: COLORS.primary, borderRadius: 3},
-  breakdownCount: {fontSize: 13, fontWeight: '700', color: COLORS.text, minWidth: 20, textAlign: 'right'},
+  breakdownCount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+    minWidth: 20,
+    textAlign: 'right',
+  },
   // Empty PR
   emptyPR: {
     backgroundColor: COLORS.surface,

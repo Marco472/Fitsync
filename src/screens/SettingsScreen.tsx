@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Switch,
   TextInput,
   Alert,
   StatusBar,
@@ -19,17 +18,23 @@ import {type UnitSystem, type WorkoutType} from '../types';
 import {workoutTypeLabel, workoutTypeIcon} from '../utils/formatters';
 
 const WORKOUT_TYPES: WorkoutType[] = [
-  'running', 'cycling', 'rowing', 'elliptical', 'stair_climbing', 'skiing', 'other',
+  'running',
+  'cycling',
+  'rowing',
+  'elliptical',
+  'stair_climbing',
+  'skiing',
+  'other',
 ];
 
 export function SettingsScreen() {
   const {state, saveUserSettings, effectiveMaxHR} = useAppContext();
   const settings = state.userSettings;
 
-  const [weight, setWeight]   = useState(String(settings.weightKg));
-  const [age, setAge]         = useState(String(settings.ageYears));
-  const [maxHR, setMaxHR]     = useState(String(settings.maxHeartRate));
-  const [ftp, setFtp]         = useState(String(settings.ftpWatts));
+  const [weight, setWeight] = useState(String(settings.weightKg));
+  const [age, setAge] = useState(String(settings.ageYears));
+  const [maxHR, setMaxHR] = useState(String(settings.maxHeartRate));
+  const [ftp, setFtp] = useState(String(settings.ftpWatts));
   const [interval, setInterval] = useState(String(settings.sampleIntervalSeconds));
 
   function handleUnitToggle(unit: UnitSystem) {
@@ -89,8 +94,8 @@ export function SettingsScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.title}>Settings</Text>
 
           {/* Units */}
@@ -101,7 +106,8 @@ export function SettingsScreen() {
                 key={u}
                 style={[styles.unitRow, settings.unitSystem === u && styles.unitRowActive]}
                 onPress={() => handleUnitToggle(u)}
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+              >
                 <Text style={styles.unitLabel}>
                   {u === 'metric' ? 'Metric (km, kg)' : 'Imperial (mi, lb)'}
                 </Text>
@@ -141,7 +147,7 @@ export function SettingsScreen() {
               onChange={setMaxHR}
               unit="bpm"
               keyboardType="number-pad"
-              hint={`Enter 0 for auto-calculate · Current auto = ${autoMaxHR} bpm`}
+              hint={`Enter 0 for auto-calculate · Currently used: ${effectiveMaxHR()} bpm · Auto = ${autoMaxHR} bpm`}
             />
             <Divider />
             <InputRow
@@ -162,12 +168,11 @@ export function SettingsScreen() {
                 <TouchableOpacity
                   style={styles.typeRow}
                   onPress={() => handleDefaultType(type)}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.typeIcon}>{workoutTypeIcon(type)}</Text>
                   <Text style={styles.typeLabel}>{workoutTypeLabel(type)}</Text>
-                  {settings.defaultWorkoutType === type && (
-                    <Text style={styles.checkmark}>✓</Text>
-                  )}
+                  {settings.defaultWorkoutType === type && <Text style={styles.checkmark}>✓</Text>}
                 </TouchableOpacity>
                 {i < WORKOUT_TYPES.length - 1 && <Divider />}
               </React.Fragment>
@@ -214,7 +219,12 @@ function Divider() {
 }
 
 function InputRow({
-  label, value, onChange, unit, keyboardType, hint,
+  label,
+  value,
+  onChange,
+  unit,
+  keyboardType,
+  hint,
 }: {
   label: string;
   value: string;
@@ -250,7 +260,13 @@ const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: COLORS.background},
   scroll: {flex: 1},
   content: {padding: SPACING.md, paddingBottom: 60},
-  title: {fontSize: 28, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.md, marginTop: SPACING.sm},
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.sm,
+  },
   sectionHeader: {
     fontSize: 12,
     fontWeight: '700',

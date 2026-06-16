@@ -6,9 +6,9 @@
  */
 
 import React, {useState} from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, ScrollView} from 'react-native';
+import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import {COLORS, SPACING, RADIUS} from '../theme';
-import {type IntervalProgram, type IntervalBlock} from '../types';
+import {type IntervalProgram} from '../types';
 import {formatDuration} from '../utils/formatters';
 
 // ─── Built-in presets ────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ export const INTERVAL_PRESETS: IntervalProgram[] = [
     name: '8 × 500 m',
     rounds: 8,
     blocks: [
-      {type: 'work', durationSeconds: 120},   // ~2 min/500m
+      {type: 'work', durationSeconds: 120}, // ~2 min/500m
       {type: 'rest', durationSeconds: 60},
     ],
   },
@@ -94,19 +94,22 @@ export function IntervalBuilder({selected, onChange}: Props) {
       <TouchableOpacity
         style={styles.header}
         onPress={() => setExpanded(e => !e)}
-        activeOpacity={0.7}>
+        activeOpacity={0.7}
+      >
         <View style={styles.headerLeft}>
           <Text style={styles.heading}>Intervals</Text>
-          {selected && (
-            <Text style={styles.selectedLabel}>{selected.name}</Text>
-          )}
+          {selected && <Text style={styles.selectedLabel}>{selected.name}</Text>}
         </View>
         <View style={styles.headerRight}>
           {selected && (
             <TouchableOpacity
-              onPress={(e) => { e.stopPropagation?.(); onChange(null); }}
+              onPress={e => {
+                e.stopPropagation?.();
+                onChange(null);
+              }}
               style={styles.clearBtn}
-              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+            >
               <Text style={styles.clearBtnText}>✕</Text>
             </TouchableOpacity>
           )}
@@ -122,14 +125,19 @@ export function IntervalBuilder({selected, onChange}: Props) {
               <TouchableOpacity
                 key={preset.id}
                 style={[styles.presetRow, isActive && styles.presetRowActive]}
-                onPress={() => { onChange(isActive ? null : preset); setExpanded(false); }}
-                activeOpacity={0.7}>
+                onPress={() => {
+                  onChange(isActive ? null : preset);
+                  setExpanded(false);
+                }}
+                activeOpacity={0.7}
+              >
                 <View style={styles.presetInfo}>
                   <Text style={[styles.presetName, isActive && styles.presetNameActive]}>
                     {preset.name}
                   </Text>
                   <Text style={styles.presetMeta}>
-                    {formatDuration(totalDuration(preset))} total · {formatDuration(workDuration(preset))} work
+                    {formatDuration(totalDuration(preset))} total ·{' '}
+                    {formatDuration(workDuration(preset))} work
                     {preset.rounds > 1 ? ` · ${preset.rounds} rounds` : ''}
                   </Text>
                 </View>
@@ -137,7 +145,11 @@ export function IntervalBuilder({selected, onChange}: Props) {
                   {preset.blocks.slice(0, 4).map((b, i) => (
                     <View
                       key={i}
-                      style={[styles.blockPill, b.type === 'work' ? styles.blockWork : styles.blockRest]}>
+                      style={[
+                        styles.blockPill,
+                        b.type === 'work' ? styles.blockWork : styles.blockRest,
+                      ]}
+                    >
                       <Text style={styles.blockPillText}>{formatDuration(b.durationSeconds)}</Text>
                     </View>
                   ))}

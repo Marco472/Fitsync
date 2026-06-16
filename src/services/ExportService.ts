@@ -11,7 +11,7 @@
  *  - Strava (via GPX export — future enhancement)
  */
 
-import {Share, Alert, Platform} from 'react-native';
+import {Share, Alert} from 'react-native';
 import RNFS from 'react-native-fs';
 import {type Workout} from '../types';
 import {workoutTypeLabel, formatDuration} from '../utils/formatters';
@@ -19,7 +19,9 @@ import {workoutTypeLabel, formatDuration} from '../utils/formatters';
 // ─── CSV generation ───────────────────────────────────────────────────────────
 
 function escapeCsv(value: string | number | undefined | null): string {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined) {
+    return '';
+  }
   const str = String(value);
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;
@@ -42,44 +44,64 @@ export function workoutToCsv(workout: Workout): string {
   lines.push(`# Workout ID,${workout.id}`);
   lines.push(`# Type,${workoutTypeLabel(workout.workoutType)}`);
   lines.push(`# Start,${new Date(workout.startTime).toISOString()}`);
-  if (workout.endTime) lines.push(`# End,${new Date(workout.endTime).toISOString()}`);
+  if (workout.endTime) {
+    lines.push(`# End,${new Date(workout.endTime).toISOString()}`);
+  }
   lines.push(`# Duration,${formatDuration(workout.duration)}`);
-  if (workout.totalDistance) lines.push(`# Distance (m),${workout.totalDistance}`);
-  if (workout.totalCalories)  lines.push(`# Calories (kcal),${workout.totalCalories}`);
-  if (workout.averageHeartRate) lines.push(`# Avg HR (bpm),${workout.averageHeartRate}`);
-  if (workout.maxHeartRate)   lines.push(`# Max HR (bpm),${workout.maxHeartRate}`);
-  if (workout.averageSpeed)   lines.push(`# Avg Speed (km/h),${workout.averageSpeed.toFixed(2)}`);
-  if (workout.averagePower)   lines.push(`# Avg Power (W),${workout.averagePower}`);
-  if (workout.deviceName)     lines.push(`# Device,${workout.deviceName}`);
+  if (workout.totalDistance) {
+    lines.push(`# Distance (m),${workout.totalDistance}`);
+  }
+  if (workout.totalCalories) {
+    lines.push(`# Calories (kcal),${workout.totalCalories}`);
+  }
+  if (workout.averageHeartRate) {
+    lines.push(`# Avg HR (bpm),${workout.averageHeartRate}`);
+  }
+  if (workout.maxHeartRate) {
+    lines.push(`# Max HR (bpm),${workout.maxHeartRate}`);
+  }
+  if (workout.averageSpeed) {
+    lines.push(`# Avg Speed (km/h),${workout.averageSpeed.toFixed(2)}`);
+  }
+  if (workout.averagePower) {
+    lines.push(`# Avg Power (W),${workout.averagePower}`);
+  }
+  if (workout.deviceName) {
+    lines.push(`# Device,${workout.deviceName}`);
+  }
   lines.push('#');
 
   // Sample data header
-  lines.push(row(
-    'Timestamp (ISO)',
-    'Elapsed (s)',
-    'Heart Rate (bpm)',
-    'Speed (km/h)',
-    'Power (W)',
-    'Cadence (rpm)',
-    'Distance (m)',
-    'Stroke Rate (spm)',
-    'Gear',
-  ));
+  lines.push(
+    row(
+      'Timestamp (ISO)',
+      'Elapsed (s)',
+      'Heart Rate (bpm)',
+      'Speed (km/h)',
+      'Power (W)',
+      'Cadence (rpm)',
+      'Distance (m)',
+      'Stroke Rate (spm)',
+      'Gear',
+    ),
+  );
 
   // Sample rows
   for (const s of workout.samples) {
     const elapsed = Math.floor((s.timestamp - workout.startTime) / 1000);
-    lines.push(row(
-      new Date(s.timestamp).toISOString(),
-      elapsed,
-      s.heartRate,
-      s.speed?.toFixed(2),
-      s.power,
-      s.cadence,
-      s.distance,
-      s.strokeRate,
-      s.gear,
-    ));
+    lines.push(
+      row(
+        new Date(s.timestamp).toISOString(),
+        elapsed,
+        s.heartRate,
+        s.speed?.toFixed(2),
+        s.power,
+        s.cadence,
+        s.distance,
+        s.strokeRate,
+        s.gear,
+      ),
+    );
   }
 
   return lines.join('\n');
@@ -91,36 +113,40 @@ export function workoutToCsv(workout: Workout): string {
 export function historyToCsv(workouts: Workout[]): string {
   const lines: string[] = [];
 
-  lines.push(row(
-    'ID',
-    'Type',
-    'Start',
-    'Duration (s)',
-    'Distance (m)',
-    'Calories (kcal)',
-    'Avg HR (bpm)',
-    'Max HR (bpm)',
-    'Avg Speed (km/h)',
-    'Avg Power (W)',
-    'Device',
-    'Synced to Health',
-  ));
+  lines.push(
+    row(
+      'ID',
+      'Type',
+      'Start',
+      'Duration (s)',
+      'Distance (m)',
+      'Calories (kcal)',
+      'Avg HR (bpm)',
+      'Max HR (bpm)',
+      'Avg Speed (km/h)',
+      'Avg Power (W)',
+      'Device',
+      'Synced to Health',
+    ),
+  );
 
   for (const w of workouts) {
-    lines.push(row(
-      w.id,
-      workoutTypeLabel(w.workoutType),
-      new Date(w.startTime).toISOString(),
-      w.duration,
-      w.totalDistance,
-      w.totalCalories,
-      w.averageHeartRate,
-      w.maxHeartRate,
-      w.averageSpeed?.toFixed(2),
-      w.averagePower,
-      w.deviceName,
-      w.syncedToHealthKit ? 'Yes' : 'No',
-    ));
+    lines.push(
+      row(
+        w.id,
+        workoutTypeLabel(w.workoutType),
+        new Date(w.startTime).toISOString(),
+        w.duration,
+        w.totalDistance,
+        w.totalCalories,
+        w.averageHeartRate,
+        w.maxHeartRate,
+        w.averageSpeed?.toFixed(2),
+        w.averagePower,
+        w.deviceName,
+        w.syncedToHealthKit ? 'Yes' : 'No',
+      ),
+    );
   }
 
   return lines.join('\n');

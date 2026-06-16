@@ -40,12 +40,17 @@ export function HistoryScreen() {
   // Workout types present in history (for filter chips)
   const presentTypes = useMemo((): WorkoutType[] => {
     const seen = new Set<WorkoutType>();
-    for (const w of state.workoutHistory) seen.add(w.workoutType);
+    for (const w of state.workoutHistory) {
+      seen.add(w.workoutType);
+    }
     return Array.from(seen);
   }, [state.workoutHistory]);
 
-  const displayedWorkouts = useMemo(() =>
-    typeFilter ? state.workoutHistory.filter(w => w.workoutType === typeFilter) : state.workoutHistory,
+  const displayedWorkouts = useMemo(
+    () =>
+      typeFilter
+        ? state.workoutHistory.filter(w => w.workoutType === typeFilter)
+        : state.workoutHistory,
     [state.workoutHistory, typeFilter],
   );
 
@@ -96,7 +101,8 @@ export function HistoryScreen() {
             <TouchableOpacity
               style={styles.exportAllBtn}
               onPress={() => exportHistoryCsv(state.workoutHistory)}
-              activeOpacity={0.7}>
+              activeOpacity={0.7}
+            >
               <Text style={styles.exportAllBtnText}>Export All</Text>
             </TouchableOpacity>
           )}
@@ -108,12 +114,16 @@ export function HistoryScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.filterRow}
-            contentContainerStyle={styles.filterRowContent}>
+            contentContainerStyle={styles.filterRowContent}
+          >
             <TouchableOpacity
               style={[styles.filterChip, typeFilter === null && styles.filterChipActive]}
               onPress={() => setTypeFilter(null)}
-              activeOpacity={0.7}>
-              <Text style={[styles.filterChipText, typeFilter === null && styles.filterChipTextActive]}>
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[styles.filterChipText, typeFilter === null && styles.filterChipTextActive]}
+              >
                 All
               </Text>
             </TouchableOpacity>
@@ -122,9 +132,15 @@ export function HistoryScreen() {
                 key={type}
                 style={[styles.filterChip, typeFilter === type && styles.filterChipActive]}
                 onPress={() => setTypeFilter(typeFilter === type ? null : type)}
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+              >
                 <Text style={styles.filterChipIcon}>{workoutTypeIcon(type)}</Text>
-                <Text style={[styles.filterChipText, typeFilter === type && styles.filterChipTextActive]}>
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    typeFilter === type && styles.filterChipTextActive,
+                  ]}
+                >
                   {workoutTypeLabel(type)}
                 </Text>
               </TouchableOpacity>
@@ -136,9 +152,7 @@ export function HistoryScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>📋</Text>
             <Text style={styles.emptyTitle}>No workout history</Text>
-            <Text style={styles.emptyBody}>
-              Completed workouts will appear here
-            </Text>
+            <Text style={styles.emptyBody}>Completed workouts will appear here</Text>
           </View>
         ) : displayedWorkouts.length === 0 ? (
           <View style={styles.emptyState}>
@@ -194,10 +208,7 @@ function WorkoutHistoryCard({
   onSync: () => void;
 }) {
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPress}
-      activeOpacity={0.8}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.cardLeft}>
         <Text style={styles.cardIcon}>{workoutTypeIcon(workout.workoutType)}</Text>
         <View>
@@ -225,13 +236,8 @@ function WorkoutHistoryCard({
         {workout.syncedToHealthKit ? (
           <Text style={styles.syncedBadge}>❤️</Text>
         ) : (
-          <TouchableOpacity
-            onPress={onSync}
-            style={styles.syncBtn}
-            disabled={isSyncing}>
-            <Text style={styles.syncBtnText}>
-              {isSyncing ? '…' : 'Sync ❤️'}
-            </Text>
+          <TouchableOpacity onPress={onSync} style={styles.syncBtn} disabled={isSyncing}>
+            <Text style={styles.syncBtnText}>{isSyncing ? '…' : 'Sync ❤️'}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -258,24 +264,21 @@ function WorkoutDetailModal({
 }) {
   const [localNotes, setLocalNotes] = useState(workout.notes ?? '');
 
-  const avgHR = workout.averageHeartRate ??
+  const avgHR =
+    workout.averageHeartRate ??
     (workout.samples.filter(s => s.heartRate).length > 0
-      ? workout.samples
-          .filter(s => s.heartRate)
-          .reduce((sum, s) => sum + s.heartRate!, 0) /
+      ? workout.samples.filter(s => s.heartRate).reduce((sum, s) => sum + s.heartRate!, 0) /
         workout.samples.filter(s => s.heartRate).length
       : null);
 
-  const maxHR = workout.maxHeartRate ??
-    (workout.samples.length > 0
-      ? Math.max(...workout.samples.map(s => s.heartRate ?? 0))
-      : null);
+  const maxHR =
+    workout.maxHeartRate ??
+    (workout.samples.length > 0 ? Math.max(...workout.samples.map(s => s.heartRate ?? 0)) : null);
 
-  const avgSpeed = workout.averageSpeed ??
+  const avgSpeed =
+    workout.averageSpeed ??
     (workout.samples.filter(s => s.speed).length > 0
-      ? workout.samples
-          .filter(s => s.speed)
-          .reduce((sum, s) => sum + s.speed!, 0) /
+      ? workout.samples.filter(s => s.speed).reduce((sum, s) => sum + s.speed!, 0) /
         workout.samples.filter(s => s.speed).length
       : null);
 
@@ -284,8 +287,7 @@ function WorkoutDetailModal({
       <SafeAreaView style={styles.modalSafe}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>
-            {workoutTypeIcon(workout.workoutType)}{' '}
-            {workoutTypeLabel(workout.workoutType)}
+            {workoutTypeIcon(workout.workoutType)} {workoutTypeLabel(workout.workoutType)}
           </Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Text style={styles.closeBtnText}>✕</Text>
@@ -294,188 +296,197 @@ function WorkoutDetailModal({
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.kav}>
-        <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-          {/* Date / Time */}
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Date</Text>
-            <Text style={styles.detailValue}>
-              {new Date(workout.startTime).toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Time</Text>
-            <Text style={styles.detailValue}>
-              {new Date(workout.startTime).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Duration</Text>
-            <Text style={styles.detailValue}>{formatDuration(workout.duration)}</Text>
-          </View>
-
-          {workout.totalDistance ? (
+          style={styles.kav}
+        >
+          <ScrollView
+            contentContainerStyle={styles.modalContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Date / Time */}
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Distance</Text>
+              <Text style={styles.detailLabel}>Date</Text>
               <Text style={styles.detailValue}>
-                {formatDistance(workout.totalDistance)}
+                {new Date(workout.startTime).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
               </Text>
             </View>
-          ) : null}
-
-          {workout.totalCalories ? (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Calories</Text>
+              <Text style={styles.detailLabel}>Time</Text>
               <Text style={styles.detailValue}>
-                {formatCalories(workout.totalCalories)}
+                {new Date(workout.startTime).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </Text>
             </View>
-          ) : null}
-
-          {avgHR ? (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Avg Heart Rate</Text>
-              <Text style={[styles.detailValue, {color: COLORS.heartRate}]}>
-                {formatHeartRate(avgHR)}
-              </Text>
+              <Text style={styles.detailLabel}>Duration</Text>
+              <Text style={styles.detailValue}>{formatDuration(workout.duration)}</Text>
             </View>
-          ) : null}
 
-          {maxHR && maxHR > 0 ? (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Max Heart Rate</Text>
-              <Text style={[styles.detailValue, {color: COLORS.heartRate}]}>
-                {formatHeartRate(maxHR)}
-              </Text>
-            </View>
-          ) : null}
-
-          {avgSpeed ? (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Avg Speed</Text>
-              <Text style={[styles.detailValue, {color: COLORS.speed}]}>
-                {formatSpeed(avgSpeed)}
-              </Text>
-            </View>
-          ) : null}
-
-          {workout.deviceName ? (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Device</Text>
-              <Text style={styles.detailValue}>{workout.deviceName}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Data Points</Text>
-            <Text style={styles.detailValue}>{workout.samples.length}</Text>
-          </View>
-
-          {/* Sample charts */}
-          {(() => {
-            const hrData  = workout.samples.map(s => s.heartRate).filter((v): v is number => v != null);
-            const pwrData = workout.samples.map(s => s.power).filter((v): v is number => v != null);
-            const spdData = workout.samples.map(s => s.speed).filter((v): v is number => v != null);
-            return (hrData.length >= 3 || pwrData.length >= 3 || spdData.length >= 3) ? (
-              <View style={styles.chartsSection}>
-                {hrData.length >= 3 && (
-                  <View style={styles.chartBlock}>
-                    <Text style={styles.chartBlockLabel}>Heart Rate</Text>
-                    <SparkChart data={hrData} color={COLORS.heartRate} height={52} />
-                  </View>
-                )}
-                {pwrData.length >= 3 && (
-                  <View style={styles.chartBlock}>
-                    <Text style={styles.chartBlockLabel}>Power</Text>
-                    <SparkChart data={pwrData} color={COLORS.power} height={52} />
-                  </View>
-                )}
-                {spdData.length >= 3 && (
-                  <View style={styles.chartBlock}>
-                    <Text style={styles.chartBlockLabel}>Speed</Text>
-                    <SparkChart data={spdData} color={COLORS.speed} height={52} />
-                  </View>
-                )}
+            {workout.totalDistance ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Distance</Text>
+                <Text style={styles.detailValue}>{formatDistance(workout.totalDistance)}</Text>
               </View>
-            ) : null;
-          })()}
+            ) : null}
 
-          {/* Sync to HealthKit */}
-          <View style={styles.syncSection}>
-            {workout.syncedToHealthKit ? (
-              <View style={styles.syncedState}>
-                <Text style={styles.syncedIcon}>❤️</Text>
-                <Text style={styles.syncedText}>Synced to Apple Health</Text>
+            {workout.totalCalories ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Calories</Text>
+                <Text style={styles.detailValue}>{formatCalories(workout.totalCalories)}</Text>
               </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.syncModalBtn, !healthKitAuthorized && styles.syncModalBtnDisabled]}
-                onPress={onSync}
-                disabled={isSyncing || !healthKitAuthorized}
-                activeOpacity={0.8}>
-                <Text style={styles.syncModalBtnText}>
-                  {isSyncing
-                    ? 'Syncing…'
-                    : !healthKitAuthorized
-                    ? 'Connect Apple Health First'
-                    : '❤️ Sync to Apple Health'}
+            ) : null}
+
+            {avgHR ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Avg Heart Rate</Text>
+                <Text style={[styles.detailValue, {color: COLORS.heartRate}]}>
+                  {formatHeartRate(avgHR)}
                 </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Notes */}
-          <View style={styles.notesSection}>
-            <Text style={styles.notesSectionTitle}>Notes</Text>
-            <TextInput
-              style={styles.notesInput}
-              value={localNotes}
-              onChangeText={setLocalNotes}
-              onBlur={() => {
-                const trimmed = localNotes.trim();
-                if (trimmed !== (workout.notes ?? '')) {
-                  updateWorkout(workout.id, {notes: trimmed || undefined});
-                }
-              }}
-              multiline
-              numberOfLines={3}
-              placeholder="Add workout notes…"
-              placeholderTextColor={COLORS.textMuted}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Export */}
-          {isPro && (
-            <View style={styles.exportSection}>
-              <Text style={styles.exportSectionTitle}>Export</Text>
-              <View style={styles.exportRow}>
-                <TouchableOpacity
-                  style={styles.exportBtn}
-                  onPress={() => exportWorkoutCsv(workout)}
-                  activeOpacity={0.7}>
-                  <Text style={styles.exportBtnIcon}>📄</Text>
-                  <Text style={styles.exportBtnText}>CSV</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.exportBtn}
-                  onPress={() => exportWorkoutJson(workout)}
-                  activeOpacity={0.7}>
-                  <Text style={styles.exportBtnIcon}>{ '{}'}</Text>
-                  <Text style={styles.exportBtnText}>JSON</Text>
-                </TouchableOpacity>
               </View>
+            ) : null}
+
+            {maxHR && maxHR > 0 ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Max Heart Rate</Text>
+                <Text style={[styles.detailValue, {color: COLORS.heartRate}]}>
+                  {formatHeartRate(maxHR)}
+                </Text>
+              </View>
+            ) : null}
+
+            {avgSpeed ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Avg Speed</Text>
+                <Text style={[styles.detailValue, {color: COLORS.speed}]}>
+                  {formatSpeed(avgSpeed)}
+                </Text>
+              </View>
+            ) : null}
+
+            {workout.deviceName ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Device</Text>
+                <Text style={styles.detailValue}>{workout.deviceName}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Data Points</Text>
+              <Text style={styles.detailValue}>{workout.samples.length}</Text>
             </View>
-          )}
-        </ScrollView>
+
+            {/* Sample charts */}
+            {(() => {
+              const hrData = workout.samples
+                .map(s => s.heartRate)
+                .filter((v): v is number => v != null);
+              const pwrData = workout.samples
+                .map(s => s.power)
+                .filter((v): v is number => v != null);
+              const spdData = workout.samples
+                .map(s => s.speed)
+                .filter((v): v is number => v != null);
+              return hrData.length >= 3 || pwrData.length >= 3 || spdData.length >= 3 ? (
+                <View style={styles.chartsSection}>
+                  {hrData.length >= 3 && (
+                    <View style={styles.chartBlock}>
+                      <Text style={styles.chartBlockLabel}>Heart Rate</Text>
+                      <SparkChart data={hrData} color={COLORS.heartRate} height={52} />
+                    </View>
+                  )}
+                  {pwrData.length >= 3 && (
+                    <View style={styles.chartBlock}>
+                      <Text style={styles.chartBlockLabel}>Power</Text>
+                      <SparkChart data={pwrData} color={COLORS.power} height={52} />
+                    </View>
+                  )}
+                  {spdData.length >= 3 && (
+                    <View style={styles.chartBlock}>
+                      <Text style={styles.chartBlockLabel}>Speed</Text>
+                      <SparkChart data={spdData} color={COLORS.speed} height={52} />
+                    </View>
+                  )}
+                </View>
+              ) : null;
+            })()}
+
+            {/* Sync to HealthKit */}
+            <View style={styles.syncSection}>
+              {workout.syncedToHealthKit ? (
+                <View style={styles.syncedState}>
+                  <Text style={styles.syncedIcon}>❤️</Text>
+                  <Text style={styles.syncedText}>Synced to Apple Health</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.syncModalBtn, !healthKitAuthorized && styles.syncModalBtnDisabled]}
+                  onPress={onSync}
+                  disabled={isSyncing || !healthKitAuthorized}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.syncModalBtnText}>
+                    {isSyncing
+                      ? 'Syncing…'
+                      : !healthKitAuthorized
+                      ? 'Connect Apple Health First'
+                      : '❤️ Sync to Apple Health'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Notes */}
+            <View style={styles.notesSection}>
+              <Text style={styles.notesSectionTitle}>Notes</Text>
+              <TextInput
+                style={styles.notesInput}
+                value={localNotes}
+                onChangeText={setLocalNotes}
+                onBlur={() => {
+                  const trimmed = localNotes.trim();
+                  if (trimmed !== (workout.notes ?? '')) {
+                    updateWorkout(workout.id, {notes: trimmed || undefined});
+                  }
+                }}
+                multiline
+                numberOfLines={3}
+                placeholder="Add workout notes…"
+                placeholderTextColor={COLORS.textMuted}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Export */}
+            {isPro && (
+              <View style={styles.exportSection}>
+                <Text style={styles.exportSectionTitle}>Export</Text>
+                <View style={styles.exportRow}>
+                  <TouchableOpacity
+                    style={styles.exportBtn}
+                    onPress={() => exportWorkoutCsv(workout)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.exportBtnIcon}>📄</Text>
+                    <Text style={styles.exportBtnText}>CSV</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.exportBtn}
+                    onPress={() => exportWorkoutJson(workout)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.exportBtnIcon}>{'{}'}</Text>
+                    <Text style={styles.exportBtnText}>JSON</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>

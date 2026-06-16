@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState, useCallback} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -42,12 +42,11 @@ import {
   workoutTypeIcon,
   getHRZone,
   getPowerZone,
+  personalRecordLabel,
 } from '../utils/formatters';
 import {SparkChart} from '../components/SparkChart';
 import {IntervalBuilder} from '../components/IntervalBuilder';
 import {IntervalDisplay} from '../components/IntervalDisplay';
-
-const SAMPLE_INTERVAL_MS = 5000;
 
 export function WorkoutScreen() {
   const {
@@ -66,38 +65,41 @@ export function WorkoutScreen() {
   const [elapsed, setElapsed] = useState(0);
   const [manualWorkoutType, setManualWorkoutType] = useState<WorkoutType | null>(null);
   const [treadmillData, setTreadmillData] = useState<TreadmillData | null>(null);
-  const [bikeData, setBikeData]           = useState<IndoorBikeData | null>(null);
-  const [rowerData, setRowerData]         = useState<RowerData | null>(null);
-  const [keiserData, setKeiserData]       = useState<KeiserBikeData | null>(null);
-  const [c2Data, setC2Data]               = useState<Concept2RowingData | null>(null);
-  const [hrData, setHrData]               = useState<HeartRateData | null>(null);
-  const [isSyncing, setIsSyncing]               = useState(false);
-  const [goal, setGoal]                         = useState<WorkoutGoal | null>(null);
-  const [intervalProgram, setIntervalProgram]   = useState<IntervalProgram | null>(null);
-  const [intervalState, setIntervalState]       = useState<IntervalState | null>(null);
-  const intervalRef                             = useRef<IntervalState | null>(null);
-  const goalCelebrated                          = useRef(false);
-  const intervalTimerRef                        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [bikeData, setBikeData] = useState<IndoorBikeData | null>(null);
+  const [rowerData, setRowerData] = useState<RowerData | null>(null);
+  const [keiserData, setKeiserData] = useState<KeiserBikeData | null>(null);
+  const [c2Data, setC2Data] = useState<Concept2RowingData | null>(null);
+  const [hrData, setHrData] = useState<HeartRateData | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [goal, setGoal] = useState<WorkoutGoal | null>(null);
+  const [intervalProgram, setIntervalProgram] = useState<IntervalProgram | null>(null);
+  const [intervalState, setIntervalState] = useState<IntervalState | null>(null);
+  const intervalRef = useRef<IntervalState | null>(null);
+  const goalCelebrated = useRef(false);
+  const intervalTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sampleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef   = useRef<number>(0);
-  const pausedMsRef    = useRef<number>(0);
-  const pauseStartRef  = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const pausedMsRef = useRef<number>(0);
+  const pauseStartRef = useRef<number | null>(null);
 
   const isActive = !!state.activeWorkout;
   const isPaused = state.workoutPaused;
-  const device   = state.connectedDevice;
-  const isPro    = canUseFeature('advancedMetrics');
-  const maxHR    = effectiveMaxHR();
-  const ftp      = state.userSettings.ftpWatts;
+  const device = state.connectedDevice;
+  const isPro = canUseFeature('advancedMetrics');
+  const maxHR = effectiveMaxHR();
+  const ftp = state.userSettings.ftpWatts;
 
-  // Subscribe to all connected devices
+  // Subscribe to all connected devices. Keyed on device IDs (not the array
+  // reference) so this doesn't resubscribe on every unrelated state update.
+  const connectedDeviceIds = state.connectedDevices.map(d => d.id).join(',');
   useEffect(() => {
     for (const d of state.connectedDevices) {
       subscribeDevice(d.id, d.deviceType, d.brand);
     }
-  }, [state.connectedDevices.map(d => d.id).join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedDeviceIds]);
 
   function subscribeDevice(deviceId: string, deviceType: string, brand: string) {
     if (brand === 'concept2') {
@@ -145,26 +147,45 @@ export function WorkoutScreen() {
   }, []);
 
   function clearTimers() {
-    if (timerRef.current)        clearInterval(timerRef.current);
-    if (sampleTimerRef.current)  clearInterval(sampleTimerRef.current);
-    if (intervalTimerRef.current) clearInterval(intervalTimerRef.current);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    if (sampleTimerRef.current) {
+      clearInterval(sampleTimerRef.current);
+    }
+    if (intervalTimerRef.current) {
+      clearInterval(intervalTimerRef.current);
+    }
     timerRef.current = null;
     sampleTimerRef.current = null;
     intervalTimerRef.current = null;
   }
 
   function detectWorkoutType(): WorkoutType {
-    if (!device) return state.userSettings.defaultWorkoutType;
-    if (device.brand === 'concept2') return 'rowing';
-    if (device.brand === 'keiser')   return 'cycling';
+    if (!device) {
+      return state.userSettings.defaultWorkoutType;
+    }
+    if (device.brand === 'concept2') {
+      return 'rowing';
+    }
+    if (device.brand === 'keiser') {
+      return 'cycling';
+    }
     switch (device.deviceType) {
-      case 'treadmill':     return 'running';
-      case 'bike':          return 'cycling';
-      case 'rowing_machine': return 'rowing';
-      case 'elliptical':    return 'elliptical';
-      case 'stair_climber': return 'stair_climbing';
-      case 'ski_erg':       return 'skiing';
-      default:              return state.userSettings.defaultWorkoutType;
+      case 'treadmill':
+        return 'running';
+      case 'bike':
+        return 'cycling';
+      case 'rowing_machine':
+        return 'rowing';
+      case 'elliptical':
+        return 'elliptical';
+      case 'stair_climber':
+        return 'stair_climbing';
+      case 'ski_erg':
+        return 'skiing';
+      default:
+        return state.userSettings.defaultWorkoutType;
     }
   }
 
@@ -190,7 +211,9 @@ export function WorkoutScreen() {
 
       intervalTimerRef.current = setInterval(() => {
         const iv = intervalRef.current;
-        if (!iv) return;
+        if (!iv) {
+          return;
+        }
 
         const block = iv.program.blocks[iv.currentBlock];
         const nextElapsed = iv.blockElapsed + 1;
@@ -232,7 +255,10 @@ export function WorkoutScreen() {
             intervalRef.current = null;
             setIntervalState(null);
             Vibration.vibrate([0, 200, 100, 200]);
-            Alert.alert('Intervals Complete!', 'All rounds finished — keep going or end your workout.');
+            Alert.alert(
+              'Intervals Complete!',
+              'All rounds finished — keep going or end your workout.',
+            );
           }
         }
       }, 1000);
@@ -240,9 +266,7 @@ export function WorkoutScreen() {
 
     timerRef.current = setInterval(() => {
       if (!pauseStartRef.current) {
-        const secs = Math.floor(
-          (Date.now() - startTimeRef.current - pausedMsRef.current) / 1000,
-        );
+        const secs = Math.floor((Date.now() - startTimeRef.current - pausedMsRef.current) / 1000);
         setElapsed(secs);
 
         // Goal reached notification (fires once)
@@ -256,20 +280,23 @@ export function WorkoutScreen() {
 
     sampleTimerRef.current = setInterval(() => {
       const active = treadmillData ?? bikeData ?? rowerData ?? keiserData ?? c2Data;
-      const distM  = active?.totalDistance ?? c2Data?.distance;
-      const cals   = (active as IndoorBikeData)?.totalEnergy ?? keiserData?.calories;
+      const distM =
+        (active as TreadmillData | IndoorBikeData | RowerData)?.totalDistance ?? c2Data?.distance;
+      const cals = (active as IndoorBikeData)?.totalEnergy ?? keiserData?.calories;
 
       addWorkoutSample({
-        heartRate:   hrData?.bpm ?? (c2Data?.heartRate || keiserData?.heartRate) || undefined,
-        speed:       (active as TreadmillData | IndoorBikeData)?.instantaneousSpeed
-                     ?? (keiserData?.instantaneousSpeed),
-        power:       (active as IndoorBikeData)?.instantaneousPower
-                     ?? keiserData?.power
-                     ?? c2Data?.instantaneousPower,
-        cadence:     (active as IndoorBikeData)?.instantaneousCadence ?? keiserData?.cadence,
-        distance:    distM,
-        strokeRate:  (active as RowerData)?.strokeRate ?? c2Data?.strokeRate,
-        gear:        keiserData?.gear,
+        heartRate: hrData?.bpm || c2Data?.heartRate || keiserData?.heartRate || undefined,
+        speed:
+          (active as TreadmillData | IndoorBikeData)?.instantaneousSpeed ??
+          keiserData?.instantaneousSpeed,
+        power:
+          (active as IndoorBikeData)?.instantaneousPower ??
+          keiserData?.power ??
+          c2Data?.instantaneousPower,
+        cadence: (active as IndoorBikeData)?.instantaneousCadence ?? keiserData?.cadence,
+        distance: distM,
+        strokeRate: (active as RowerData)?.strokeRate ?? c2Data?.strokeRate,
+        gear: keiserData?.gear,
       });
 
       // Distance / calorie goal checks
@@ -280,9 +307,8 @@ export function WorkoutScreen() {
         if (reached) {
           goalCelebrated.current = true;
           Vibration.vibrate([0, 100, 100, 100, 100, 200]);
-          const label = goal.type === 'distance'
-            ? formatDistance(goal.value)
-            : formatCalories(goal.value);
+          const label =
+            goal.type === 'distance' ? formatDistance(goal.value) : formatCalories(goal.value);
           Alert.alert('Goal Reached!', `You hit your ${label} target.`);
         }
       }
@@ -308,14 +334,12 @@ export function WorkoutScreen() {
     clearTimers();
 
     const currentData = treadmillData ?? bikeData ?? rowerData ?? keiserData;
-    const kcal =
-      (currentData as IndoorBikeData)?.totalEnergy ??
-      keiserData?.calories ??
-      undefined;
+    const kcal = (currentData as IndoorBikeData)?.totalEnergy ?? keiserData?.calories ?? undefined;
 
-    const finished = endWorkout(kcal);
+    const result = endWorkout(kcal);
 
-    if (finished) {
+    if (result) {
+      const {workout: finished, newRecords} = result;
       await saveWorkoutHistory([finished, ...state.workoutHistory]);
       setGoal(null);
       setIntervalState(null);
@@ -324,16 +348,21 @@ export function WorkoutScreen() {
       if (state.healthKitAuthorized && canUseFeature('healthKitAutoSync')) {
         setIsSyncing(true);
         try {
-          const result = await healthKitService.syncWorkout(finished);
-          if (result.success) {
+          const syncResult = await healthKitService.syncWorkout(finished);
+          if (syncResult.success) {
             dispatch({
               type: 'MARK_WORKOUT_SYNCED',
-              payload: {workoutId: finished.id, healthKitWorkoutId: result.healthKitWorkoutId},
+              payload: {workoutId: finished.id, healthKitWorkoutId: syncResult.healthKitWorkoutId},
             });
           }
         } finally {
           setIsSyncing(false);
         }
+      }
+
+      if (newRecords.length > 0) {
+        Vibration.vibrate([0, 150, 100, 150, 100, 300]);
+        Alert.alert('🏆 New Personal Record!', newRecords.map(personalRecordLabel).join('\n'));
       }
 
       promptShare(finished);
@@ -342,27 +371,31 @@ export function WorkoutScreen() {
 
   function promptShare(finished: Workout) {
     const lines: string[] = [
-      `FitSync Workout Complete!`,
+      'FitSync Workout Complete!',
       `${workoutTypeIcon(finished.workoutType)} ${workoutTypeLabel(finished.workoutType)}`,
       `⏱ ${formatDuration(finished.duration)}`,
     ];
-    if (finished.totalDistance) lines.push(`📍 ${formatDistance(finished.totalDistance)}`);
-    if (finished.totalCalories) lines.push(`🔥 ${formatCalories(finished.totalCalories)}`);
-    if (finished.averageHeartRate) lines.push(`❤️ ${formatHeartRate(finished.averageHeartRate)} avg`);
-    if (finished.deviceName) lines.push(`📡 via ${finished.deviceName}`);
+    if (finished.totalDistance) {
+      lines.push(`📍 ${formatDistance(finished.totalDistance)}`);
+    }
+    if (finished.totalCalories) {
+      lines.push(`🔥 ${formatCalories(finished.totalCalories)}`);
+    }
+    if (finished.averageHeartRate) {
+      lines.push(`❤️ ${formatHeartRate(finished.averageHeartRate)} avg`);
+    }
+    if (finished.deviceName) {
+      lines.push(`📡 via ${finished.deviceName}`);
+    }
     lines.push('Tracked with FitSync');
 
-    Alert.alert(
-      'Workout Saved',
-      `${formatDuration(finished.duration)} — great work!`,
-      [
-        {text: 'Close', style: 'cancel'},
-        {
-          text: 'Share',
-          onPress: () => Share.share({message: lines.join('\n')}),
-        },
-      ],
-    );
+    Alert.alert('Workout Saved', `${formatDuration(finished.duration)} — great work!`, [
+      {text: 'Close', style: 'cancel'},
+      {
+        text: 'Share',
+        onPress: () => Share.share({message: lines.join('\n')}),
+      },
+    ]);
   }
 
   // ── Derived values ──────────────────────────────────────────────────────────
@@ -370,30 +403,36 @@ export function WorkoutScreen() {
   const activeData = treadmillData ?? bikeData ?? rowerData ?? keiserData ?? c2Data;
   const workoutType = isActive
     ? state.activeWorkout!.workoutType
-    : (manualWorkoutType ?? detectWorkoutType());
+    : manualWorkoutType ?? detectWorkoutType();
 
-  const currentHR    = hrData?.bpm ?? c2Data?.heartRate ?? keiserData?.heartRate;
-  const currentSpeed = (activeData as TreadmillData | IndoorBikeData)?.instantaneousSpeed
-                       ?? keiserData?.instantaneousSpeed;
-  const currentPower = (activeData as IndoorBikeData)?.instantaneousPower
-                       ?? keiserData?.power
-                       ?? c2Data?.instantaneousPower;
-  const currentCad   = (activeData as IndoorBikeData)?.instantaneousCadence ?? keiserData?.cadence;
-  const currentDist  = activeData?.totalDistance ?? c2Data?.distance;
-  const currentCals  = (activeData as IndoorBikeData)?.totalEnergy ?? keiserData?.calories;
-  const hrZone       = currentHR ? getHRZone(currentHR, maxHR) : null;
-  const powerZone    = currentPower && ftp > 0 ? getPowerZone(currentPower, ftp) : null;
+  const currentHR = hrData?.bpm ?? c2Data?.heartRate ?? keiserData?.heartRate;
+  const currentSpeed =
+    (activeData as TreadmillData | IndoorBikeData)?.instantaneousSpeed ??
+    keiserData?.instantaneousSpeed;
+  const currentPower =
+    (activeData as IndoorBikeData)?.instantaneousPower ??
+    keiserData?.power ??
+    c2Data?.instantaneousPower;
+  const currentCad = (activeData as IndoorBikeData)?.instantaneousCadence ?? keiserData?.cadence;
+  const currentDist =
+    (activeData as TreadmillData | IndoorBikeData | RowerData)?.totalDistance ?? c2Data?.distance;
+  const currentCals = (activeData as IndoorBikeData)?.totalEnergy ?? keiserData?.calories;
+  const hrZone = currentHR ? getHRZone(currentHR, maxHR) : null;
+  const powerZone = currentPower && ftp > 0 ? getPowerZone(currentPower, ftp) : null;
 
-  const hrSamples    = state.activeWorkout?.samples.filter(s => s.heartRate).map(s => s.heartRate!) ?? [];
+  const hrSamples =
+    state.activeWorkout?.samples.filter(s => s.heartRate).map(s => s.heartRate!) ?? [];
   const powerSamples = state.activeWorkout?.samples.filter(s => s.power).map(s => s.power!) ?? [];
-  const spdSamples   = state.activeWorkout?.samples.filter(s => s.speed).map(s => s.speed!) ?? [];
+  const spdSamples = state.activeWorkout?.samples.filter(s => s.speed).map(s => s.speed!) ?? [];
 
-  const avgOf = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
-  const avgHR    = hrSamples.length >= 2 ? avgOf(hrSamples) : null;
+  const avgOf = (arr: number[]) =>
+    arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+  const avgHR = hrSamples.length >= 2 ? avgOf(hrSamples) : null;
   const avgPower = powerSamples.length >= 2 ? avgOf(powerSamples) : null;
-  const avgSpeed = spdSamples.length >= 2
-    ? Math.round((spdSamples.reduce((a, b) => a + b, 0) / spdSamples.length) * 10) / 10
-    : null;
+  const avgSpeed =
+    spdSamples.length >= 2
+      ? Math.round((spdSamples.reduce((a, b) => a + b, 0) / spdSamples.length) * 10) / 10
+      : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -401,8 +440,8 @@ export function WorkoutScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Workout</Text>
@@ -419,7 +458,12 @@ export function WorkoutScreen() {
         </View>
 
         {/* Timer */}
-        <View style={[styles.timerCard, isActive && (isPaused ? styles.timerCardPaused : styles.timerCardActive)]}>
+        <View
+          style={[
+            styles.timerCard,
+            isActive && (isPaused ? styles.timerCardPaused : styles.timerCardActive),
+          ]}
+        >
           <Text style={styles.workoutLabel}>
             {workoutTypeIcon(workoutType)} {workoutTypeLabel(workoutType)}
           </Text>
@@ -438,13 +482,16 @@ export function WorkoutScreen() {
         </View>
 
         {/* Interval display */}
-        {intervalState && (
-          <IntervalDisplay state={intervalState} />
-        )}
+        {intervalState && <IntervalDisplay state={intervalState} />}
 
         {/* HR Zone banner */}
         {hrZone && isPro && (
-          <View style={[styles.zoneBanner, {borderColor: hrZone.color + '88', backgroundColor: hrZone.color + '18'}]}>
+          <View
+            style={[
+              styles.zoneBanner,
+              {borderColor: hrZone.color + '88', backgroundColor: hrZone.color + '18'},
+            ]}
+          >
             <Text style={[styles.zoneName, {color: hrZone.color}]}>
               ❤️ Zone {hrZone.zone} — {hrZone.name}
             </Text>
@@ -453,7 +500,12 @@ export function WorkoutScreen() {
 
         {/* Power Zone banner */}
         {powerZone && isPro && (
-          <View style={[styles.zoneBanner, {borderColor: powerZone.color + '88', backgroundColor: powerZone.color + '18'}]}>
+          <View
+            style={[
+              styles.zoneBanner,
+              {borderColor: powerZone.color + '88', backgroundColor: powerZone.color + '18'},
+            ]}
+          >
             <Text style={[styles.zoneName, {color: powerZone.color}]}>
               ⚡ Zone {powerZone.zone} — {powerZone.name}
             </Text>
@@ -534,7 +586,7 @@ export function WorkoutScreen() {
           </View>
         ) : null}
 
-        {(workoutType === 'rowing' && (rowerData?.instantaneousPace ?? c2Data?.currentPace)) ? (
+        {workoutType === 'rowing' && (rowerData?.instantaneousPace ?? c2Data?.currentPace) ? (
           <View style={styles.paceCard}>
             <Text style={styles.paceLabel}>Split</Text>
             <Text style={styles.paceValue}>
@@ -563,11 +615,7 @@ export function WorkoutScreen() {
         {isPro && hrSamples.length >= 3 && (
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Heart Rate</Text>
-            <SparkChart
-              data={hrSamples}
-              color={COLORS.heartRate}
-              height={60}
-            />
+            <SparkChart data={hrSamples} color={COLORS.heartRate} height={60} />
           </View>
         )}
 
@@ -575,11 +623,7 @@ export function WorkoutScreen() {
         {isPro && powerSamples.length >= 3 && (
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Power</Text>
-            <SparkChart
-              data={powerSamples}
-              color={COLORS.power}
-              height={60}
-            />
+            <SparkChart data={powerSamples} color={COLORS.power} height={60} />
           </View>
         )}
 
@@ -593,28 +637,37 @@ export function WorkoutScreen() {
 
         {/* Goal progress bar */}
         {isActive && goal && (
-          <GoalProgressBar goal={goal} elapsed={elapsed} currentDist={currentDist} currentCals={currentCals} />
+          <GoalProgressBar
+            goal={goal}
+            elapsed={elapsed}
+            currentDist={currentDist}
+            currentCals={currentCals}
+          />
         )}
 
         {/* Workout type picker (before start) */}
         {!isActive && (
-          <TypePicker selected={manualWorkoutType} onChange={setManualWorkoutType} autoDetected={detectWorkoutType()} />
+          <TypePicker
+            selected={manualWorkoutType}
+            onChange={setManualWorkoutType}
+            autoDetected={detectWorkoutType()}
+          />
         )}
 
         {/* Goal picker (before start) */}
-        {!isActive && (
-          <GoalPicker goal={goal} onChange={setGoal} />
-        )}
+        {!isActive && <GoalPicker goal={goal} onChange={setGoal} />}
 
         {/* Interval program builder (before start) */}
-        {!isActive && (
-          <IntervalBuilder selected={intervalProgram} onChange={setIntervalProgram} />
-        )}
+        {!isActive && <IntervalBuilder selected={intervalProgram} onChange={setIntervalProgram} />}
 
         {/* Controls */}
         <View style={styles.controls}>
           {!isActive ? (
-            <TouchableOpacity style={styles.startBtn} onPress={handleStartWorkout} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.startBtn}
+              onPress={handleStartWorkout}
+              activeOpacity={0.8}
+            >
               <Text style={styles.startBtnIcon}>▶</Text>
               <Text style={styles.startBtnText}>Start Workout</Text>
             </TouchableOpacity>
@@ -623,14 +676,16 @@ export function WorkoutScreen() {
               <TouchableOpacity
                 style={[styles.pauseBtn, isPaused && styles.resumeBtn]}
                 onPress={isPaused ? handleResume : handlePause}
-                activeOpacity={0.8}>
+                activeOpacity={0.8}
+              >
                 <Text style={styles.pauseBtnText}>{isPaused ? '▶ Resume' : '⏸ Pause'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.stopBtn, isSyncing && styles.stopBtnDisabled]}
                 onPress={handleEndWorkout}
                 disabled={isSyncing}
-                activeOpacity={0.8}>
+                activeOpacity={0.8}
+              >
                 <Text style={styles.stopBtnText}>{isSyncing ? 'Syncing…' : '■ End'}</Text>
               </TouchableOpacity>
             </View>
@@ -653,7 +708,13 @@ export function WorkoutScreen() {
 // ─── TypePicker ───────────────────────────────────────────────────────────────
 
 const WORKOUT_TYPE_OPTIONS: WorkoutType[] = [
-  'running', 'cycling', 'rowing', 'elliptical', 'stair_climbing', 'skiing', 'other',
+  'running',
+  'cycling',
+  'rowing',
+  'elliptical',
+  'stair_climbing',
+  'skiing',
+  'other',
 ];
 
 function TypePicker({
@@ -677,7 +738,8 @@ function TypePicker({
               key={type}
               style={[tpStyles.typeBtn, isActive && tpStyles.typeBtnActive]}
               onPress={() => onChange(selected === type ? null : type)}
-              activeOpacity={0.7}>
+              activeOpacity={0.7}
+            >
               <Text style={tpStyles.typeIcon}>{workoutTypeIcon(type)}</Text>
               <Text style={[tpStyles.typeLabel, isActive && tpStyles.typeLabelActive]}>
                 {workoutTypeLabel(type)}
@@ -729,7 +791,11 @@ const tpStyles = StyleSheet.create({
 
 // ─── GoalPicker ───────────────────────────────────────────────────────────────
 
-const GOAL_PRESETS: {type: WorkoutGoalType; label: string; options: {label: string; value: number}[]}[] = [
+const GOAL_PRESETS: {
+  type: WorkoutGoalType;
+  label: string;
+  options: {label: string; value: number}[];
+}[] = [
   {
     type: 'duration',
     label: 'Time',
@@ -744,9 +810,9 @@ const GOAL_PRESETS: {type: WorkoutGoalType; label: string; options: {label: stri
     type: 'distance',
     label: 'Distance',
     options: [
-      {label: '1 km',  value: 1000},
-      {label: '2 km',  value: 2000},
-      {label: '5 km',  value: 5000},
+      {label: '1 km', value: 1000},
+      {label: '2 km', value: 2000},
+      {label: '5 km', value: 5000},
       {label: '10 km', value: 10000},
     ],
   },
@@ -762,7 +828,13 @@ const GOAL_PRESETS: {type: WorkoutGoalType; label: string; options: {label: stri
   },
 ];
 
-function GoalPicker({goal, onChange}: {goal: WorkoutGoal | null; onChange: (g: WorkoutGoal | null) => void}) {
+function GoalPicker({
+  goal,
+  onChange,
+}: {
+  goal: WorkoutGoal | null;
+  onChange: (g: WorkoutGoal | null) => void;
+}) {
   const [selectedType, setSelectedType] = useState<WorkoutGoalType>('duration');
   const preset = GOAL_PRESETS.find(p => p.type === selectedType)!;
 
@@ -775,8 +847,14 @@ function GoalPicker({goal, onChange}: {goal: WorkoutGoal | null; onChange: (g: W
             key={p.type}
             style={[goalStyles.typeBtn, selectedType === p.type && goalStyles.typeBtnActive]}
             onPress={() => setSelectedType(p.type)}
-            activeOpacity={0.7}>
-            <Text style={[goalStyles.typeBtnText, selectedType === p.type && goalStyles.typeBtnTextActive]}>
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                goalStyles.typeBtnText,
+                selectedType === p.type && goalStyles.typeBtnTextActive,
+              ]}
+            >
               {p.label}
             </Text>
           </TouchableOpacity>
@@ -790,7 +868,8 @@ function GoalPicker({goal, onChange}: {goal: WorkoutGoal | null; onChange: (g: W
               key={opt.value}
               style={[goalStyles.optionBtn, selected && goalStyles.optionBtnActive]}
               onPress={() => onChange(selected ? null : {type: selectedType, value: opt.value})}
-              activeOpacity={0.7}>
+              activeOpacity={0.7}
+            >
               <Text style={[goalStyles.optionText, selected && goalStyles.optionTextActive]}>
                 {opt.label}
               </Text>
@@ -811,7 +890,14 @@ const goalStyles = StyleSheet.create({
     padding: SPACING.md,
     marginBottom: SPACING.md,
   },
-  heading: {fontSize: 12, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: SPACING.sm},
+  heading: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: SPACING.sm,
+  },
   typeRow: {flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm},
   typeBtn: {
     flex: 1,
@@ -842,7 +928,10 @@ const goalStyles = StyleSheet.create({
 // ─── GoalProgressBar ─────────────────────────────────────────────────────────
 
 function GoalProgressBar({
-  goal, elapsed, currentDist, currentCals,
+  goal,
+  elapsed,
+  currentDist,
+  currentCals,
 }: {
   goal: WorkoutGoal;
   elapsed: number;
@@ -850,17 +939,21 @@ function GoalProgressBar({
   currentCals?: number;
 }) {
   const current =
-    goal.type === 'duration' ? elapsed :
-    goal.type === 'distance' ? (currentDist ?? 0) :
-    (currentCals ?? 0);
+    goal.type === 'duration'
+      ? elapsed
+      : goal.type === 'distance'
+      ? currentDist ?? 0
+      : currentCals ?? 0;
 
   const progress = Math.min(current / goal.value, 1);
-  const reached  = progress >= 1;
+  const reached = progress >= 1;
 
   const label =
-    goal.type === 'duration' ? `${formatDuration(elapsed)} / ${formatDuration(goal.value)}` :
-    goal.type === 'distance' ? `${formatDistance(current)} / ${formatDistance(goal.value)}` :
-    `${formatCalories(current)} / ${formatCalories(goal.value)}`;
+    goal.type === 'duration'
+      ? `${formatDuration(elapsed)} / ${formatDuration(goal.value)}`
+      : goal.type === 'distance'
+      ? `${formatDistance(current)} / ${formatDistance(goal.value)}`
+      : `${formatCalories(current)} / ${formatCalories(goal.value)}`;
 
   return (
     <View style={pbStyles.container}>
@@ -869,7 +962,15 @@ function GoalProgressBar({
         <Text style={[pbStyles.value, reached && pbStyles.reached]}>{label}</Text>
       </View>
       <View style={pbStyles.track}>
-        <View style={[pbStyles.fill, {width: `${progress * 100}%`, backgroundColor: reached ? COLORS.success : COLORS.primary}]} />
+        <View
+          style={[
+            pbStyles.fill,
+            {
+              width: `${progress * 100}%`,
+              backgroundColor: reached ? COLORS.success : COLORS.primary,
+            },
+          ]}
+        />
       </View>
     </View>
   );
@@ -885,7 +986,13 @@ const pbStyles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   row: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs},
-  label: {fontSize: 12, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 1},
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
   value: {fontSize: 13, fontWeight: '600', color: COLORS.textSecondary},
   reached: {color: COLORS.success},
   track: {height: 6, borderRadius: 3, backgroundColor: COLORS.border, overflow: 'hidden'},
@@ -894,8 +1001,18 @@ const pbStyles = StyleSheet.create({
 
 // ─── MetricTile ───────────────────────────────────────────────────────────────
 
-function MetricTile({label, value, color, icon, sub}: {
-  label: string; value: string; color: string; icon: string; sub?: string;
+function MetricTile({
+  label,
+  value,
+  color,
+  icon,
+  sub,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  icon: string;
+  sub?: string;
 }) {
   return (
     <View style={[styles.metricTile, {borderColor: color + '33'}]}>
@@ -1008,7 +1125,13 @@ const styles = StyleSheet.create({
     // last child has no border — handled by removing it conditionally
   },
   avgValue: {fontSize: 16, fontWeight: '700', color: COLORS.textSecondary},
-  avgLabel: {fontSize: 10, color: COLORS.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5},
+  avgLabel: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   paceCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.md,

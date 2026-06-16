@@ -16,8 +16,7 @@
  * Pro features to prevent receipt fraud on compromised devices.
  */
 
-import {Platform, NativeModules} from 'react-native';
-import * as FileSystem from 'react-native-fs'; // optional — only used if available
+import {Platform} from 'react-native';
 
 const JAILBREAK_PATHS = [
   '/Applications/Cydia.app',
@@ -84,11 +83,12 @@ export async function detectJailbreak(): Promise<JailbreakResult> {
   // 3. Check for suspicious dylibs loaded into the process
   try {
     const dylibs = await getLoadedDylibs();
-    const suspicious = dylibs.filter(d =>
-      d.includes('MobileSubstrate') ||
-      d.includes('substitute') ||
-      d.includes('libhooker') ||
-      d.includes('TweakInject'),
+    const suspicious = dylibs.filter(
+      d =>
+        d.includes('MobileSubstrate') ||
+        d.includes('substitute') ||
+        d.includes('libhooker') ||
+        d.includes('TweakInject'),
     );
     if (suspicious.length > 0) {
       indicators.push(`Suspicious dylibs: ${suspicious.join(', ')}`);
@@ -121,7 +121,9 @@ async function checkPathExists(path: string): Promise<boolean> {
 async function tryWriteOutsideSandbox(path: string): Promise<boolean> {
   try {
     const RNFS = require('react-native-fs');
-    if (!RNFS?.writeFile) return false;
+    if (!RNFS?.writeFile) {
+      return false;
+    }
     await RNFS.writeFile(path, 'jb_test', 'utf8');
     // If we got here, the write succeeded — clean up
     await RNFS.unlink(path).catch(() => {});
@@ -132,11 +134,6 @@ async function tryWriteOutsideSandbox(path: string): Promise<boolean> {
 }
 
 async function getLoadedDylibs(): Promise<string[]> {
-  try {
-    // NativeModules.RNDeviceInfo provides getInstalledApps on some modules,
-    // but dylib inspection requires a native module. Return empty if unavailable.
-    return [];
-  } catch {
-    return [];
-  }
+  // Dylib inspection requires a native module that isn't wired up yet.
+  return [];
 }

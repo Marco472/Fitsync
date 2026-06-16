@@ -31,6 +31,11 @@ export interface ValidationResult {
   error?: string;
 }
 
+// Metro injects `process.env.NODE_ENV` by default; other vars require a
+// build-time plugin (e.g. react-native-config). Declared locally rather than
+// pulling in @types/node, which would clash with RN/DOM global typings.
+declare const process: {env: Record<string, string | undefined>};
+
 // Replace with your actual backend URL — do NOT hard-code in production;
 // load from a build-time env variable (e.g. via react-native-config).
 const VALIDATION_ENDPOINT =
@@ -55,10 +60,22 @@ export async function validateReceiptWithBackend(
   try {
     // Sanitise inputs before sending
     if (!transactionReceipt || typeof transactionReceipt !== 'string') {
-      return {valid: false, tier: 'free', expiresAt: null, originalTransactionId: null, error: 'Invalid receipt'};
+      return {
+        valid: false,
+        tier: 'free',
+        expiresAt: null,
+        originalTransactionId: null,
+        error: 'Invalid receipt',
+      };
     }
     if (transactionReceipt.length > 50_000) {
-      return {valid: false, tier: 'free', expiresAt: null, originalTransactionId: null, error: 'Receipt too large'};
+      return {
+        valid: false,
+        tier: 'free',
+        expiresAt: null,
+        originalTransactionId: null,
+        error: 'Receipt too large',
+      };
     }
 
     const response = await fetch(VALIDATION_ENDPOINT, {
@@ -90,10 +107,7 @@ export async function validateReceiptWithBackend(
     const json = await response.json();
 
     // Validate the shape of the response
-    if (
-      typeof json?.valid !== 'boolean' ||
-      !['free', 'pro'].includes(json?.tier)
-    ) {
+    if (typeof json?.valid !== 'boolean' || !['free', 'pro'].includes(json?.tier)) {
       return {
         valid: false,
         tier: 'free',
@@ -108,13 +122,17 @@ export async function validateReceiptWithBackend(
       tier: json.tier,
       expiresAt: typeof json.expiresAt === 'string' ? json.expiresAt : null,
       originalTransactionId:
-        typeof json.originalTransactionId === 'string'
-          ? json.originalTransactionId
-          : null,
+        typeof json.originalTransactionId === 'string' ? json.originalTransactionId : null,
     };
   } catch (e: any) {
     if (e?.name === 'AbortError') {
-      return {valid: false, tier: 'free', expiresAt: null, originalTransactionId: null, error: 'Request timed out'};
+      return {
+        valid: false,
+        tier: 'free',
+        expiresAt: null,
+        originalTransactionId: null,
+        error: 'Request timed out',
+      };
     }
     return {
       valid: false,

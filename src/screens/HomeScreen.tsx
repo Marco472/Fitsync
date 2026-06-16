@@ -1,12 +1,5 @@
 import React, {useEffect} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {type BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
@@ -14,7 +7,12 @@ import {useAppContext} from '../context/AppContext';
 import {healthKitService} from '../services/HealthKitService';
 import {COLORS, SPACING, RADIUS} from '../theme';
 import {type Workout, type RootTabParamList, FEATURE_LIMITS} from '../types';
-import {formatDuration, formatDistance, workoutTypeLabel, workoutTypeIcon} from '../utils/formatters';
+import {
+  formatDuration,
+  formatDistance,
+  workoutTypeLabel,
+  workoutTypeIcon,
+} from '../utils/formatters';
 
 type NavProp = BottomTabNavigationProp<RootTabParamList, 'Home'>;
 
@@ -29,6 +27,7 @@ export function HomeScreen() {
 
   useEffect(() => {
     requestHealthKit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function requestHealthKit() {
@@ -42,22 +41,30 @@ export function HomeScreen() {
     (sum, w) => sum + Math.floor(w.duration / 60),
     0,
   );
-  const totalCalories = state.workoutHistory.reduce(
-    (sum, w) => sum + (w.totalCalories ?? 0),
-    0,
-  );
+  const totalCalories = state.workoutHistory.reduce((sum, w) => sum + (w.totalCalories ?? 0), 0);
 
   const workoutStreak = React.useMemo(() => {
-    if (state.workoutHistory.length === 0) return 0;
-    const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    if (state.workoutHistory.length === 0) {
+      return 0;
+    }
+    const todayMs = (() => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    })();
     let streak = 0;
     let checkMs = todayMs;
     while (true) {
       const hasWorkout = state.workoutHistory.some(w => {
-        const d = new Date(w.startTime); d.setHours(0,0,0,0); return d.getTime() === checkMs;
+        const d = new Date(w.startTime);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime() === checkMs;
       });
       if (!hasWorkout) {
-        if (streak === 0 && checkMs === todayMs) { checkMs -= 86400000; continue; }
+        if (streak === 0 && checkMs === todayMs) {
+          checkMs -= 86400000;
+          continue;
+        }
         break;
       }
       streak++;
@@ -72,7 +79,8 @@ export function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -110,10 +118,21 @@ export function HomeScreen() {
           <View style={styles.connectedBanner}>
             <Text style={styles.connectedDot}>●</Text>
             <Text style={styles.connectedText}>
-              {state.connectedDevices.length === 1
-                ? <>Connected to <Text style={styles.connectedName}>{state.connectedDevices[0].name ?? 'Unknown Device'}</Text></>
-                : <>{state.connectedDevices.length} devices connected: <Text style={styles.connectedName}>{state.connectedDevices.map(d => d.name ?? 'Device').join(', ')}</Text></>
-              }
+              {state.connectedDevices.length === 1 ? (
+                <>
+                  Connected to{' '}
+                  <Text style={styles.connectedName}>
+                    {state.connectedDevices[0].name ?? 'Unknown Device'}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  {state.connectedDevices.length} devices connected:{' '}
+                  <Text style={styles.connectedName}>
+                    {state.connectedDevices.map(d => d.name ?? 'Device').join(', ')}
+                  </Text>
+                </>
+              )}
             </Text>
           </View>
         )}
@@ -123,24 +142,18 @@ export function HomeScreen() {
           <View style={[styles.connectedBanner, styles.activeBanner]}>
             <Text style={styles.connectedDot}>⚡</Text>
             <Text style={styles.connectedText}>
-              Workout in progress —{' '}
-              {formatDuration(state.activeWorkout.duration)}
+              Workout in progress — {formatDuration(state.activeWorkout.duration)}
             </Text>
           </View>
         )}
 
         {/* HealthKit CTA */}
         {!state.healthKitAuthorized && (
-          <TouchableOpacity
-            style={styles.ctaCard}
-            onPress={requestHealthKit}
-            activeOpacity={0.8}>
+          <TouchableOpacity style={styles.ctaCard} onPress={requestHealthKit} activeOpacity={0.8}>
             <Text style={styles.ctaIcon}>❤️</Text>
             <View style={styles.ctaText}>
               <Text style={styles.ctaTitle}>Connect Apple Health</Text>
-              <Text style={styles.ctaBody}>
-                Sync workouts, heart rate & more automatically
-              </Text>
+              <Text style={styles.ctaBody}>Sync workouts, heart rate & more automatically</Text>
             </View>
             <Text style={styles.ctaChevron}>›</Text>
           </TouchableOpacity>
@@ -151,7 +164,8 @@ export function HomeScreen() {
           <TouchableOpacity
             style={styles.proCta}
             onPress={() => navigation.navigate('Membership')}
-            activeOpacity={0.8}>
+            activeOpacity={0.8}
+          >
             <Text style={styles.proCtaIcon}>⚡</Text>
             <View style={styles.ctaText}>
               <Text style={styles.proCtaTitle}>Upgrade to FitSync Pro</Text>
@@ -168,7 +182,8 @@ export function HomeScreen() {
           <TouchableOpacity
             style={styles.warnCard}
             onPress={() => navigation.navigate('Membership')}
-            activeOpacity={0.8}>
+            activeOpacity={0.8}
+          >
             <Text style={styles.warnIcon}>⚠️</Text>
             <Text style={styles.warnText}>
               {historyCount}/{historyLimit} workouts stored — upgrade for unlimited
@@ -182,9 +197,7 @@ export function HomeScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>🏃</Text>
             <Text style={styles.emptyTitle}>No workouts yet</Text>
-            <Text style={styles.emptyBody}>
-              Connect a machine and start your first session
-            </Text>
+            <Text style={styles.emptyBody}>Connect a machine and start your first session</Text>
           </View>
         ) : (
           recentWorkouts.map(w => <WorkoutCard key={w.id} workout={w} />)
@@ -194,15 +207,7 @@ export function HomeScreen() {
   );
 }
 
-function StatCard({
-  title,
-  value,
-  icon,
-}: {
-  title: string;
-  value: string;
-  icon: string;
-}) {
+function StatCard({title, value, icon}: {title: string; value: string; icon: string}) {
   return (
     <View style={styles.statCard}>
       <Text style={styles.statIcon}>{icon}</Text>
@@ -232,13 +237,9 @@ function WorkoutCard({workout}: {workout: Workout}) {
       <View style={styles.workoutCardRight}>
         <Text style={styles.workoutDuration}>{formatDuration(workout.duration)}</Text>
         {workout.totalDistance ? (
-          <Text style={styles.workoutDistance}>
-            {formatDistance(workout.totalDistance)}
-          </Text>
+          <Text style={styles.workoutDistance}>{formatDistance(workout.totalDistance)}</Text>
         ) : null}
-        {workout.syncedToHealthKit && (
-          <Text style={styles.syncedBadge}>❤️ Synced</Text>
-        )}
+        {workout.syncedToHealthKit && <Text style={styles.syncedBadge}>❤️ Synced</Text>}
       </View>
     </View>
   );

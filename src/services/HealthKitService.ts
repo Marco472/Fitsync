@@ -6,15 +6,22 @@
  * Writes:
  *  - HKWorkout           (main workout record)
  *  - Heart Rate samples  (HKQuantityTypeIdentifierHeartRate)
- *  - Active Energy       (HKQuantityTypeIdentifierActiveEnergyBurned)
- *  - Distance            (HKQuantityTypeIdentifierDistanceWalkingRunning /
- *                         HKQuantityTypeIdentifierDistanceCycling)
- *  - Cycling Power       (HKQuantityTypeIdentifierCyclingPower)
+ *  - Active Energy       (HKQuantityTypeIdentifierActiveEnergyBurned, where supported)
+ *  - Distance            (HKQuantityTypeIdentifierDistanceWalkingRunning)
+ *
+ * Note: the installed react-native-health version doesn't expose a save
+ * method for cycling distance or standalone active energy samples (those
+ * were added in a later, unpublished release this app's package.json used
+ * to pin to). Those writes are skipped defensively at runtime rather than
+ * calling a function that doesn't exist.
  */
 
 import AppleHealthKit, {
+  HealthActivity,
+  HealthObserver,
   type HealthKitPermissions,
   type HealthValue,
+  type HealthValueOptions,
 } from 'react-native-health';
 import {type Workout, type WorkoutType, type WorkoutSample} from '../types';
 
@@ -36,20 +43,20 @@ const PERMISSIONS: HealthKitPermissions = {
       AppleHealthKit.Constants.Permissions.DistanceWalkingRunning,
       AppleHealthKit.Constants.Permissions.DistanceCycling,
       AppleHealthKit.Constants.Permissions.Workout,
-      AppleHealthKit.Constants.Permissions.CyclingPower,
     ],
   },
 };
 
 // ─── Workout Type Mapping ─────────────────────────────────────────────────────
 
-const WORKOUT_TYPE_MAP: Record<WorkoutType, number> = {
-  running: 37,        // HKWorkoutActivityTypeRunning
-  cycling: 13,        // HKWorkoutActivityTypeCycling
-  rowing: 36,         // HKWorkoutActivityTypeRowing
-  elliptical: 16,     // HKWorkoutActivityTypeElliptical
-  stair_climbing: 27, // HKWorkoutActivityTypeStairClimbing
-  other: 3000,        // HKWorkoutActivityTypeOther
+const WORKOUT_TYPE_MAP: Record<WorkoutType, HealthActivity> = {
+  running: HealthActivity.Running,
+  cycling: HealthActivity.Cycling,
+  rowing: HealthActivity.Rowing,
+  elliptical: HealthActivity.Elliptical,
+  stair_climbing: HealthActivity.StairClimbing,
+  skiing: HealthActivity.CrossCountrySkiing,
+  other: HealthActivity.CrossTraining,
 };
 
 // ─── HealthKitService ─────────────────────────────────────────────────────────
@@ -98,11 +105,6 @@ export class HealthKitService {
         type: WORKOUT_TYPE_MAP[workout.workoutType] ?? WORKOUT_TYPE_MAP.other,
         startDate: new Date(workout.startTime).toISOString(),
         endDate: new Date(workout.endTime!).toISOString(),
-        duration: workout.duration,
-        energyBurned: workout.totalCalories ?? 0,
-        energyBurnedUnit: 'kilocalorie' as const,
-        distance: workout.totalDistance ? workout.totalDistance / 1000 : 0, // HealthKit expects km
-        distanceUnit: 'kilometer' as const,
       };
 
       AppleHealthKit.saveWorkout(options, (error, result) => {
@@ -111,35 +113,39 @@ export class HealthKitService {
           resolve(null);
           return;
         }
-        resolve(result as unknown as string ?? null);
+        resolve(result?.id ?? null);
       });
     });
   }
 
   // ── Heart Rate Samples ─────────────────────────────────────────────────────
 
-  async saveHeartRateSamples(
-    samples: WorkoutSample[],
-    workoutStartTime: number,
-  ): Promise<boolean> {
-    if (!this.initialized) return false;
+  async saveHeartRateSamples(samples: WorkoutSample[]): Promise<boolean> {
+    if (!this.initialized) {
+      return false;
+    }
 
     const hrSamples = samples.filter(s => s.heartRate !== undefined);
-    if (hrSamples.length === 0) return true;
+    if (hrSamples.length === 0) {
+      return true;
+    }
 
     const results = await Promise.allSettled(
       hrSamples.map(
         s =>
           new Promise<void>((resolve, reject) => {
-            const options = {
+            const options: HealthValueOptions = {
               value: s.heartRate!,
-              unit: 'bpm' as const,
+              unit: AppleHealthKit.Constants.Units.bpm,
               startDate: new Date(s.timestamp).toISOString(),
               endDate: new Date(s.timestamp + 1000).toISOString(),
             };
             AppleHealthKit.saveHeartRateSample(options, error => {
-              if (error) reject(error);
-              else resolve();
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
             });
           }),
       ),
@@ -159,16 +165,36 @@ export class HealthKitService {
     startDate: number,
     endDate: number,
   ): Promise<boolean> {
-    if (!this.initialized) return false;
+    if (!this.initialized) {
+      return false;
+    }
+
+    // Not part of this react-native-health version's typed surface — guard
+    // at runtime so a missing native method doesn't throw.
+    const save = (
+      AppleHealthKit as unknown as {
+        saveActiveEnergyBurned?: (
+          options: HealthValueOptions,
+          callback: (error: string) => void,
+        ) => void;
+      }
+    ).saveActiveEnergyBurned;
+
+    if (typeof save !== 'function') {
+      if (__DEV__) {
+        console.warn('[HealthKit] saveActiveEnergyBurned unavailable in this library version');
+      }
+      return false;
+    }
 
     return new Promise(resolve => {
-      const options = {
+      const options: HealthValueOptions = {
         value: kilocalories,
-        unit: 'kilocalorie' as const,
+        unit: AppleHealthKit.Constants.Units.kilocalorie,
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString(),
       };
-      AppleHealthKit.saveActiveEnergyBurned(options, error => {
+      save(options, error => {
         if (error) {
           console.warn('[HealthKit] saveActiveEnergy error:', error);
           resolve(false);
@@ -187,22 +213,49 @@ export class HealthKitService {
     startDate: number,
     endDate: number,
   ): Promise<boolean> {
-    if (!this.initialized) return false;
-    const isCycling = workoutType === 'cycling';
+    if (!this.initialized) {
+      return false;
+    }
+
+    const options: HealthValueOptions = {
+      value: distanceMeters,
+      unit: AppleHealthKit.Constants.Units.meter,
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+    };
+
+    if (workoutType !== 'cycling') {
+      return new Promise(resolve => {
+        AppleHealthKit.saveWalkingRunningDistance(options, error => {
+          if (error) {
+            console.warn('[HealthKit] saveDistance error:', error);
+            resolve(false);
+            return;
+          }
+          resolve(true);
+        });
+      });
+    }
+
+    // No cycling-distance save method exists in this library version.
+    const save = (
+      AppleHealthKit as unknown as {
+        saveDistanceCycling?: (
+          options: HealthValueOptions,
+          callback: (error: string) => void,
+        ) => void;
+      }
+    ).saveDistanceCycling;
+
+    if (typeof save !== 'function') {
+      if (__DEV__) {
+        console.warn('[HealthKit] saveDistanceCycling unavailable in this library version');
+      }
+      return false;
+    }
 
     return new Promise(resolve => {
-      const options = {
-        value: distanceMeters / 1000, // convert to km
-        unit: 'kilometer' as const,
-        startDate: new Date(startDate).toISOString(),
-        endDate: new Date(endDate).toISOString(),
-      };
-
-      const save = isCycling
-        ? AppleHealthKit.saveDistanceCycling
-        : AppleHealthKit.saveDistanceWalkingRunning;
-
-      save.call(AppleHealthKit, options, error => {
+      save(options, error => {
         if (error) {
           console.warn('[HealthKit] saveDistance error:', error);
           resolve(false);
@@ -216,33 +269,46 @@ export class HealthKitService {
   // ── Cycling Power Samples ──────────────────────────────────────────────────
 
   async saveCyclingPowerSamples(samples: WorkoutSample[]): Promise<boolean> {
-    if (!this.initialized) return false;
+    if (!this.initialized) {
+      return false;
+    }
 
     const powerSamples = samples.filter(s => s.power !== undefined);
-    if (powerSamples.length === 0) return true;
+    if (powerSamples.length === 0) {
+      return true;
+    }
 
     // react-native-health doesn't expose CyclingPower directly; we write
     // through the generic quantity sample API when available.
-    const results = await Promise.allSettled(
+    await Promise.allSettled(
       powerSamples.map(
         s =>
-          new Promise<void>((resolve, _reject) => {
-            // Gracefully skip if method not available
-            if (
-              typeof (AppleHealthKit as any).saveCyclingPowerSample !== 'function'
-            ) {
+          new Promise<void>(resolve => {
+            const save = (
+              AppleHealthKit as unknown as {
+                saveCyclingPowerSample?: (
+                  options: {value: number; startDate: string; endDate: string},
+                  callback: (error: string) => void,
+                ) => void;
+              }
+            ).saveCyclingPowerSample;
+            if (typeof save !== 'function') {
               resolve();
               return;
             }
-            const options = {
-              value: s.power!,
-              startDate: new Date(s.timestamp).toISOString(),
-              endDate: new Date(s.timestamp + 1000).toISOString(),
-            };
-            (AppleHealthKit as any).saveCyclingPowerSample(options, (error: any) => {
-              if (error) console.warn('[HealthKit] CyclingPower sample error:', error);
-              resolve(); // non-fatal
-            });
+            save(
+              {
+                value: s.power!,
+                startDate: new Date(s.timestamp).toISOString(),
+                endDate: new Date(s.timestamp + 1000).toISOString(),
+              },
+              error => {
+                if (error) {
+                  console.warn('[HealthKit] CyclingPower sample error:', error);
+                }
+                resolve(); // non-fatal
+              },
+            );
           }),
       ),
     );
@@ -275,8 +341,10 @@ export class HealthKitService {
 
     // 2. Save heart rate samples
     if (workout.samples.some(s => s.heartRate)) {
-      const hrOk = await this.saveHeartRateSamples(workout.samples, workout.startTime);
-      if (!hrOk) errors.push('Some heart rate samples failed to save');
+      const hrOk = await this.saveHeartRateSamples(workout.samples);
+      if (!hrOk) {
+        errors.push('Some heart rate samples failed to save');
+      }
     }
 
     // 3. Save active energy
@@ -286,7 +354,9 @@ export class HealthKitService {
         workout.startTime,
         workout.endTime,
       );
-      if (!energyOk) errors.push('Failed to save active energy');
+      if (!energyOk) {
+        errors.push('Failed to save active energy');
+      }
     }
 
     // 4. Save distance
@@ -297,7 +367,9 @@ export class HealthKitService {
         workout.startTime,
         workout.endTime,
       );
-      if (!distOk) errors.push('Failed to save distance');
+      if (!distOk) {
+        errors.push('Failed to save distance');
+      }
     }
 
     // 5. Save cycling power samples
@@ -315,7 +387,9 @@ export class HealthKitService {
   // ── Recent Workouts (read-back) ────────────────────────────────────────────
 
   async fetchRecentWorkouts(limit = 10): Promise<HealthValue[]> {
-    if (!this.initialized) return [];
+    if (!this.initialized) {
+      return [];
+    }
 
     return new Promise(resolve => {
       const options = {
@@ -323,14 +397,15 @@ export class HealthKitService {
         endDate: new Date().toISOString(),
         limit,
         ascending: false,
+        type: HealthObserver.Workout,
       };
-      AppleHealthKit.getSamples(
-        {...options, type: 'Workout'},
-        (error, results) => {
-          if (error) { resolve([]); return; }
-          resolve(results ?? []);
-        },
-      );
+      AppleHealthKit.getSamples(options, (error, results) => {
+        if (error) {
+          resolve([]);
+          return;
+        }
+        resolve(results ?? []);
+      });
     });
   }
 }
